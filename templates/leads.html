@@ -1,0 +1,939 @@
+{% extends "base.html" %}
+{% block title %}Leads — Hermes{% endblock %}
+
+{% block content %}
+<div class="leads-toolbar">
+    <input type="text" id="search-input" class="leads-search" placeholder="Search name, email, company…" autocomplete="off">
+    <select id="filter-working-as" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono);font-size:0.8125rem;padding:8px 10px;cursor:pointer;outline:none;">
+        <option value="">All companies</option>
+    </select>
+    <select id="filter-source" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono);font-size:0.8125rem;padding:8px 10px;cursor:pointer;outline:none;">
+        <option value="">All sources</option>
+    </select>
+    <select id="filter-archived" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono);font-size:0.8125rem;padding:8px 10px;cursor:pointer;outline:none;">
+        <option value="active">Active</option>
+        <option value="archived">Archived</option>
+        <option value="all">All</option>
+    </select>
+    <button class="btn btn-primary" id="new-contact-btn">+ New</button>
+</div>
+
+<div class="tag-chips" id="tag-chips">
+    <button class="tag-chip active" data-tag="">All</button>
+</div>
+
+<!-- Bulk action bar -->
+<div class="bulk-bar hidden" id="bulk-bar">
+    <span class="bulk-count" id="bulk-count">0 selected</span>
+
+    <select class="bulk-select" id="bulk-tag-sel">
+        <option value="">— set tag —</option>
+    </select>
+    <button class="btn btn-primary" id="bulk-tag-btn" style="padding:4px 10px;">Apply Tag</button>
+
+    <select class="bulk-select" id="bulk-wa-sel">
+        <option value="">— set working as —</option>
+    </select>
+    <button class="btn btn-primary" id="bulk-wa-btn" style="padding:4px 10px;">Apply</button>
+
+    <select class="bulk-select" id="bulk-campaign-sel">
+        <option value="">— add to campaign —</option>
+    </select>
+    <button class="btn btn-primary" id="bulk-campaign-btn" style="padding:4px 10px;">Add to Campaign</button>
+
+    <button class="btn btn-danger" id="bulk-delete-btn" style="margin-left:auto;padding:4px 10px;">Delete Selected</button>
+    <button class="btn" id="bulk-clear-btn" style="padding:4px 10px;">✕ Clear</button>
+</div>
+
+<div id="status" class="status hidden"></div>
+
+<div class="leads-table-wrap">
+    <table class="leads-table">
+        <thead>
+            <tr>
+                <th style="width:24px;"><input type="checkbox" class="row-check" id="check-all" title="Select all"></th>
+                <th style="width:28px;"></th>
+                <th>Name</th>
+                <th>Company</th>
+                <th>Tags</th>
+                <th>Next Follow-up</th>
+                <th>Email</th>
+                <th>Working As</th>
+            </tr>
+        </thead>
+        <tbody id="contacts-tbody"></tbody>
+    </table>
+</div>
+
+<div class="pagination" id="pagination"></div>
+
+<!-- ── Detail Panel ─────────────────────────────────────────────────── -->
+<div id="contact-panel">
+    <div class="panel-header">
+        <span class="panel-title" id="panel-title">Contact</span>
+        <button class="panel-close" id="panel-close">✕</button>
+    </div>
+
+    <div class="panel-body">
+
+        <!-- Row 1: identity -->
+        <div class="panel-grid">
+            <div class="panel-field-wrap">
+                <span class="panel-label">First Name</span>
+                <input class="panel-field" id="f-first_name" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Last Name</span>
+                <input class="panel-field" id="f-last_name" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Title</span>
+                <input class="panel-field" id="f-title" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Company</span>
+                <input class="panel-field" id="f-company_name" type="text" list="company-list">
+                <datalist id="company-list"></datalist>
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Working As</span>
+                <select class="panel-field" id="f-working_as" style="background:#080808;">
+                    <option value="">— select —</option>
+                </select>
+            </div>
+            <div class="panel-field-wrap span2">
+                <span class="panel-label">Tags</span>
+                <div class="tag-picker" id="f-tags-picker"></div>
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Source</span>
+                <select class="panel-field" id="f-source" style="background:#080808;">
+                    <option value="">— select —</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Row 2: contact info -->
+        <div class="panel-grid">
+            <div class="panel-field-wrap span2">
+                <span class="panel-label">Email</span>
+                <input class="panel-field" id="f-email" type="email">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Phone</span>
+                <input class="panel-field" id="f-phone" type="tel">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Mobile</span>
+                <input class="panel-field" id="f-mobile_phone" type="tel">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">LinkedIn</span>
+                <input class="panel-field" id="f-linkedin_profile" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Website</span>
+                <input class="panel-field" id="f-website" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Calendar Link</span>
+                <input class="panel-field" id="f-calendar_link" type="text">
+            </div>
+        </div>
+
+        <!-- Row 3: dates + flags -->
+        <div class="panel-grid">
+            <div class="panel-field-wrap">
+                <span class="panel-label">Last Conversation</span>
+                <input class="panel-field" id="f-last_conversation" type="date">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Next Follow-up</span>
+                <input class="panel-field" id="f-next_conversation" type="date">
+                <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">
+                    <button type="button" class="followup-btn" data-days="1">+1d</button>
+                    <button type="button" class="followup-btn" data-days="7">+7d</button>
+                    <button type="button" class="followup-btn" data-days="14">+14d</button>
+                    <button type="button" class="followup-btn" data-days="30">+30d</button>
+                </div>
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Ideal Client</span>
+                <select class="panel-field" id="f-ideal_client" style="background:#080808;">
+                    <option value="0">No</option>
+                    <option value="1">Yes ★</option>
+                </select>
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Ideal Partner</span>
+                <select class="panel-field" id="f-ideal_partner" style="background:#080808;">
+                    <option value="0">No</option>
+                    <option value="1">Yes ★</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Description -->
+        <div class="panel-field-wrap" style="margin-bottom:14px;">
+            <span class="panel-label">Description / Notes</span>
+            <textarea class="panel-field" id="f-description" rows="3"></textarea>
+        </div>
+
+        <hr class="panel-divider">
+
+        <!-- Interactions: history | log form -->
+        <span class="panel-section-label">Interactions</span>
+        <div class="interaction-split">
+            <div>
+                <div id="interaction-list"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div class="panel-field-wrap">
+                        <span class="panel-label">Date</span>
+                        <input class="panel-field" id="i-date" type="date">
+                    </div>
+                    <div class="panel-field-wrap">
+                        <span class="panel-label">Type</span>
+                        <select class="panel-field" id="i-type" style="background:#080808;">
+                            <option value="call">Call</option>
+                            <option value="email">Email</option>
+                            <option value="meeting">Meeting</option>
+                            <option value="note">Note</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <textarea class="panel-field" id="i-notes" rows="4" placeholder="Notes…"></textarea>
+                <button class="btn btn-primary" id="log-btn" style="align-self:flex-start;">Log</button>
+            </div>
+        </div>
+
+        <hr class="panel-divider">
+        <span class="panel-section-label">Campaigns</span>
+        <div id="panel-campaigns-list"></div>
+        <div style="display:flex;gap:6px;margin-top:8px;">
+            <select id="panel-add-campaign-sel" style="flex:1;background:#080808;border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono);font-size:0.75rem;padding:4px 8px;">
+                <option value="">— add to campaign —</option>
+            </select>
+            <button class="btn btn-primary" id="panel-add-campaign-btn" style="padding:4px 10px;font-size:0.6875rem;">Add</button>
+        </div>
+        <div id="panel-campaign-msg" style="font-size:0.6875rem;margin-top:4px;min-height:1em;"></div>
+
+    </div><!-- /panel-body -->
+
+    <div class="panel-actions">
+        <button class="btn btn-primary" id="save-btn">Save</button>
+        <button class="btn btn-muted" id="archive-btn">Archive</button>
+        <button class="btn btn-danger" id="delete-btn">Delete</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = 1;
+let currentQ = '';
+let currentTags = new Set();
+let currentWorkingAs = '';
+let currentSource = '';
+let currentArchived = 'active';
+let currentContactId = null;
+let allTags = [];
+let workingAsOptions = [];
+let allSources = [];
+let selectedIds = new Set();
+let allCampaigns = [];
+let selectedTags = new Set();
+const today = new Date().toISOString().split('T')[0];
+
+function addDays(dateStr, n) {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + n);
+    return d.toISOString().split('T')[0];
+}
+
+// Sticky source & working as
+function stickyGet(key) { return localStorage.getItem('hermes_sticky_' + key) || ''; }
+function stickySet(key, val) { if (val) localStorage.setItem('hermes_sticky_' + key, val); }
+
+// ── Init ──────────────────────────────────────────────────────────────────
+
+async function init() {
+    if (localStorage.getItem('hermes-hide-archived') === '1') {
+        currentArchived = 'active';
+        const sel = document.getElementById('filter-archived');
+        sel.value = 'active';
+        sel.style.display = 'none';
+    }
+    await loadSettings();
+    await loadContacts();
+    setupSearch();
+    setupSortable();
+    setupBulk();
+    document.getElementById('filter-archived').addEventListener('change', function() {
+        currentArchived = this.value;
+        currentPage = 1;
+        loadContacts();
+    });
+}
+
+async function loadSettings() {
+    const [settingsRes, campaignsRes] = await Promise.all([
+        fetch('/api/settings'),
+        fetch('/api/campaigns')
+    ]);
+    const data = await settingsRes.json();
+    allTags = data.tags || [];
+    workingAsOptions = data.working_as_options || [];
+    allSources = data.sources || [];
+    allCampaigns = await campaignsRes.json();
+    renderTagChips();
+    renderWorkingAsSelect();
+    renderWorkingAsFilter();
+    renderSourceFilter();
+    renderSourceSelect();
+    renderBulkSelects();
+}
+
+function renderTagChips() {
+    const wrap = document.getElementById('tag-chips');
+    wrap.innerHTML = '';
+
+    const allBtn = document.createElement('button');
+    allBtn.className = 'tag-chip' + (currentTags.size === 0 ? ' active' : '');
+    allBtn.textContent = 'All';
+    allBtn.addEventListener('click', () => {
+        currentTags.clear();
+        currentPage = 1;
+        renderTagChips();
+        loadContacts();
+    });
+    wrap.appendChild(allBtn);
+
+    allTags.forEach(t => {
+        const btn = document.createElement('button');
+        btn.className = 'tag-chip' + (currentTags.has(t.name) ? ' active' : '');
+        btn.dataset.tag = t.name;
+        btn.textContent = t.name;
+        btn.addEventListener('click', () => {
+            if (currentTags.has(t.name)) currentTags.delete(t.name);
+            else currentTags.add(t.name);
+            currentPage = 1;
+            renderTagChips();
+            loadContacts();
+        });
+        wrap.appendChild(btn);
+    });
+}
+
+function renderWorkingAsSelect() {
+    const sel = document.getElementById('f-working_as');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">— select —</option>';
+    workingAsOptions.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.name;
+        opt.textContent = o.name;
+        sel.appendChild(opt);
+    });
+    sel.value = current;
+}
+
+function renderWorkingAsFilter() {
+    const sel = document.getElementById('filter-working-as');
+    sel.innerHTML = '<option value="">All companies</option>';
+    workingAsOptions.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.name;
+        opt.textContent = o.name;
+        sel.appendChild(opt);
+    });
+    sel.value = currentWorkingAs;
+    sel.addEventListener('change', () => {
+        currentWorkingAs = sel.value;
+        currentPage = 1;
+        loadContacts();
+    });
+}
+
+function renderSourceFilter() {
+    const sel = document.getElementById('filter-source');
+    sel.innerHTML = '<option value="">All sources</option>';
+    allSources.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.name;
+        opt.textContent = s.name;
+        sel.appendChild(opt);
+    });
+    sel.value = currentSource;
+    sel.addEventListener('change', () => {
+        currentSource = sel.value;
+        currentPage = 1;
+        loadContacts();
+    });
+}
+
+function renderTagPicker() {
+    const wrap = document.getElementById('f-tags-picker');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    if (!allTags.length) {
+        wrap.innerHTML = '<span style="color:var(--text-secondary);font-size:0.75rem;">No tags — create in Settings.</span>';
+        return;
+    }
+    allTags.forEach(t => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip' + (selectedTags.has(t.name) ? ' active' : '');
+        chip.style.cssText = 'margin:2px 3px 2px 0;';
+        chip.textContent = t.name;
+        chip.addEventListener('click', () => {
+            if (selectedTags.has(t.name)) selectedTags.delete(t.name);
+            else selectedTags.add(t.name);
+            renderTagPicker();
+        });
+        wrap.appendChild(chip);
+    });
+}
+
+function renderSourceSelect() {
+    const sel = document.getElementById('f-source');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">— select —</option>';
+    allSources.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.name;
+        opt.textContent = s.name;
+        sel.appendChild(opt);
+    });
+    sel.value = current;
+}
+
+function renderBulkSelects() {
+    const tagSel = document.getElementById('bulk-tag-sel');
+    tagSel.innerHTML = '<option value="">— set tag —</option>';
+    allTags.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.name;
+        opt.textContent = t.name;
+        tagSel.appendChild(opt);
+    });
+
+    const waSel = document.getElementById('bulk-wa-sel');
+    waSel.innerHTML = '<option value="">— set working as —</option>';
+    workingAsOptions.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.name;
+        opt.textContent = o.name;
+        waSel.appendChild(opt);
+    });
+
+    const campSel = document.getElementById('bulk-campaign-sel');
+    campSel.innerHTML = '<option value="">— add to campaign —</option>';
+    allCampaigns.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        campSel.appendChild(opt);
+    });
+}
+
+// ── Contacts list ─────────────────────────────────────────────────────────
+
+async function loadContacts() {
+    const params = new URLSearchParams({ page: currentPage });
+    if (currentQ) params.set('q', currentQ);
+    if (currentTags.size) params.set('tags', Array.from(currentTags).join(','));
+    if (currentWorkingAs) params.set('working_as', currentWorkingAs);
+    if (currentSource) params.set('source', currentSource);
+    if (currentArchived !== 'active') params.set('archived', currentArchived);
+    const res = await fetch('/api/contacts?' + params);
+    const data = await res.json();
+    renderTable(data.contacts);
+    renderPagination(data);
+}
+
+function renderTable(contacts) {
+    const tbody = document.getElementById('contacts-tbody');
+    tbody.innerHTML = '';
+    contacts.forEach(c => {
+        const checked = selectedIds.has(c.id);
+        const tr = document.createElement('tr');
+        tr.className = 'contact-row' + (c.id === currentContactId ? ' selected' : '') + (c.is_archived ? ' archived-row' : '');
+        tr.dataset.id = c.id;
+        tr.innerHTML = `
+            <td style="padding:10px 6px;"><input type="checkbox" class="row-check contact-check" data-id="${c.id}" ${checked ? 'checked' : ''}></td>
+            <td><span class="drag-handle" title="Drag to reorder">⠿</span></td>
+            <td>${esc(c.first_name)} ${esc(c.last_name || '')}</td>
+            <td>${esc(c.company_name || '')}</td>
+            <td>${renderTagPills(c.tags)}</td>
+            <td style="color:${c.next_conversation ? 'var(--accent)' : 'var(--text-secondary)'}">${esc(c.next_conversation || '—')}</td>
+            <td>${esc(c.email || '')}</td>
+            <td style="color:var(--text-secondary)">${esc(c.working_as || '')}</td>
+        `;
+        // Click row to open panel (not on checkbox or drag handle)
+        tr.addEventListener('click', (e) => {
+            if (e.target.classList.contains('row-check') || e.target.classList.contains('drag-handle')) return;
+            openPanel(c.id);
+        });
+        // Checkbox toggle
+        tr.querySelector('.contact-check').addEventListener('change', (e) => {
+            e.stopPropagation();
+            if (e.target.checked) selectedIds.add(c.id);
+            else selectedIds.delete(c.id);
+            updateBulkBar();
+        });
+        tbody.appendChild(tr);
+    });
+}
+
+function renderTagPills(tags) {
+    if (!tags) return '';
+    return tags.split(',').filter(t => t.trim()).map(t =>
+        `<span class="tag-pill">${esc(t.trim())}</span>`
+    ).join('');
+}
+
+function renderPagination(data) {
+    const wrap = document.getElementById('pagination');
+    wrap.innerHTML = '';
+    if (data.pages <= 1) return;
+    const prev = document.createElement('button');
+    prev.className = 'page-btn';
+    prev.textContent = '←';
+    prev.disabled = data.page <= 1;
+    prev.addEventListener('click', () => { currentPage--; loadContacts(); });
+    wrap.appendChild(prev);
+
+    const info = document.createElement('span');
+    info.style.cssText = 'color:var(--text-secondary);font-size:0.75rem;padding:0 8px;';
+    info.textContent = `${data.page} / ${data.pages}  (${data.total} total)`;
+    wrap.appendChild(info);
+
+    const next = document.createElement('button');
+    next.className = 'page-btn';
+    next.textContent = '→';
+    next.disabled = data.page >= data.pages;
+    next.addEventListener('click', () => { currentPage++; loadContacts(); });
+    wrap.appendChild(next);
+}
+
+function setupSearch() {
+    const input = document.getElementById('search-input');
+    let timer;
+    const doSearch = () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            currentQ = input.value.trim();
+            currentPage = 1;
+            loadContacts();
+        }, 300);
+    };
+    input.addEventListener('input', doSearch);
+    input.addEventListener('keyup', doSearch);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            clearTimeout(timer);
+            currentQ = input.value.trim();
+            currentPage = 1;
+            loadContacts();
+        }
+    });
+}
+
+function setupSortable() {
+    const tbody = document.getElementById('contacts-tbody');
+    Sortable.create(tbody, {
+        handle: '.drag-handle',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        onEnd: async () => {
+            const rows = tbody.querySelectorAll('tr');
+            const order = Array.from(rows).map((tr, i) => ({
+                id: parseInt(tr.dataset.id),
+                sort_order: i
+            }));
+            await fetch('/api/contacts/reorder', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ order })
+            });
+        }
+    });
+}
+
+// ── Bulk ──────────────────────────────────────────────────────────────────
+
+function updateBulkBar() {
+    const bar = document.getElementById('bulk-bar');
+    const count = selectedIds.size;
+    document.getElementById('bulk-count').textContent = `${count} selected`;
+    bar.classList.toggle('hidden', count === 0);
+    // sync check-all
+    const allChecks = document.querySelectorAll('.contact-check');
+    const allChecked = allChecks.length > 0 && Array.from(allChecks).every(c => c.checked);
+    document.getElementById('check-all').checked = allChecked;
+    document.getElementById('check-all').indeterminate = count > 0 && !allChecked;
+}
+
+function setupBulk() {
+    // Select all
+    document.getElementById('check-all').addEventListener('change', (e) => {
+        document.querySelectorAll('.contact-check').forEach(cb => {
+            cb.checked = e.target.checked;
+            const id = parseInt(cb.dataset.id);
+            if (e.target.checked) selectedIds.add(id);
+            else selectedIds.delete(id);
+        });
+        updateBulkBar();
+    });
+
+    // Apply tag
+    document.getElementById('bulk-tag-btn').addEventListener('click', async () => {
+        const val = document.getElementById('bulk-tag-sel').value;
+        if (!val || !selectedIds.size) return;
+        await bulkAction('set_tag', val);
+    });
+
+    // Apply working as
+    document.getElementById('bulk-wa-btn').addEventListener('click', async () => {
+        const val = document.getElementById('bulk-wa-sel').value;
+        if (!val || !selectedIds.size) return;
+        await bulkAction('set_working_as', val);
+    });
+
+    // Add to campaign
+    document.getElementById('bulk-campaign-btn').addEventListener('click', async () => {
+        const val = document.getElementById('bulk-campaign-sel').value;
+        if (!val || !selectedIds.size) return;
+        const res = await fetch('/api/contacts/bulk', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ ids: Array.from(selectedIds), action: 'add_to_campaign', value: val })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showStatus('status', `Added ${data.count} contact(s) to campaign.`, 'success');
+            document.getElementById('bulk-campaign-sel').value = '';
+        } else {
+            showStatus('status', data.error || 'Error', 'error');
+        }
+    });
+
+    // Delete
+    document.getElementById('bulk-delete-btn').addEventListener('click', async () => {
+        if (!selectedIds.size) return;
+        if (!confirm(`Delete ${selectedIds.size} contact(s)?`)) return;
+        await bulkAction('delete', '');
+    });
+
+    // Clear
+    document.getElementById('bulk-clear-btn').addEventListener('click', () => {
+        selectedIds.clear();
+        document.querySelectorAll('.contact-check').forEach(cb => cb.checked = false);
+        document.getElementById('check-all').checked = false;
+        document.getElementById('check-all').indeterminate = false;
+        updateBulkBar();
+    });
+}
+
+async function bulkAction(action, value) {
+    const ids = Array.from(selectedIds);
+    const res = await fetch('/api/contacts/bulk', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ids, action, value })
+    });
+    const data = await res.json();
+    if (res.ok) {
+        showStatus('status', `${action === 'delete' ? 'Deleted' : 'Updated'} ${data.count} contact(s).`, 'success');
+        selectedIds.clear();
+        document.getElementById('check-all').checked = false;
+        document.getElementById('check-all').indeterminate = false;
+        updateBulkBar();
+        if (action === 'delete' && currentContactId && ids.includes(currentContactId)) {
+            closePanel();
+        }
+        loadContacts();
+    } else {
+        showStatus('status', data.error || 'Error', 'error');
+    }
+}
+
+// ── Panel ─────────────────────────────────────────────────────────────────
+
+async function openPanel(contactId) {
+    currentContactId = contactId;
+    const res = await fetch(`/api/contacts/${contactId}`);
+    const c = await res.json();
+    fillPanel(c);
+    loadInteractions(contactId);
+    loadContactCampaigns(contactId);
+    highlightRow(contactId);
+    document.getElementById('contact-panel').classList.add('open');
+    document.getElementById('i-date').value = today;
+}
+
+function fillPanel(c) {
+    document.getElementById('panel-title').textContent = `${c.first_name} ${c.last_name || ''}`.trim();
+    ['first_name','last_name','title','email','phone','mobile_phone','calendar_link',
+     'last_conversation','next_conversation','linkedin_profile','description',
+     'company_name','website'].forEach(f => {
+        const el = document.getElementById('f-' + f);
+        if (el) el.value = c[f] || '';
+    });
+
+    // Date defaults: last_conversation → today, next_conversation → +7 days from last_conversation
+    const lcEl = document.getElementById('f-last_conversation');
+    const ncEl = document.getElementById('f-next_conversation');
+    if (!c.last_conversation) lcEl.value = today;
+    if (!c.next_conversation) ncEl.value = addDays(lcEl.value || today, 7);
+
+    document.getElementById('f-ideal_client').value = c.ideal_client ? '1' : '0';
+    document.getElementById('f-ideal_partner').value = c.ideal_partner ? '1' : '0';
+    renderWorkingAsSelect();
+    document.getElementById('f-working_as').value = c.working_as || stickyGet('working_as');
+    renderSourceSelect();
+    document.getElementById('f-source').value = c.source || stickyGet('source');
+    selectedTags = new Set((c.tags || '').split(',').map(t => t.trim()).filter(Boolean));
+    renderTagPicker();
+    const archiveBtn = document.getElementById('archive-btn');
+    archiveBtn.textContent = c.is_archived ? 'Unarchive' : 'Archive';
+    archiveBtn.dataset.archived = c.is_archived ? '1' : '0';
+}
+
+function closePanel() {
+    document.getElementById('contact-panel').classList.remove('open');
+    currentContactId = null;
+    document.querySelectorAll('.contact-row').forEach(r => r.classList.remove('selected'));
+}
+
+function highlightRow(id) {
+    document.querySelectorAll('.contact-row').forEach(r => r.classList.remove('selected'));
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    if (row) row.classList.add('selected');
+}
+
+async function loadInteractions(contactId) {
+    const res = await fetch(`/api/contacts/${contactId}/interactions`);
+    const interactions = await res.json();
+    const list = document.getElementById('interaction-list');
+    list.innerHTML = '';
+    if (!interactions.length) {
+        list.innerHTML = '<div style="color:var(--text-secondary);font-size:0.75rem;">No interactions yet.</div>';
+        return;
+    }
+    interactions.forEach(i => {
+        const div = document.createElement('div');
+        div.className = 'interaction-item';
+        div.innerHTML = `
+            <div class="interaction-meta">
+                <span class="interaction-date">${esc(i.date)}</span>
+                <span class="interaction-type">${esc(i.type)}</span>
+                <button class="interaction-del" data-id="${i.id}" title="Delete">✕</button>
+            </div>
+            ${i.notes ? `<div class="interaction-notes">${esc(i.notes)}</div>` : ''}
+        `;
+        list.appendChild(div);
+    });
+    list.querySelectorAll('.interaction-del').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            await fetch(`/api/interactions/${btn.dataset.id}`, { method: 'DELETE' });
+            loadInteractions(currentContactId);
+        });
+    });
+}
+
+// When last_conversation changes, shift next_conversation by same delta (if it was a 7d default)
+document.getElementById('f-last_conversation').addEventListener('change', function() {
+    const nc = document.getElementById('f-next_conversation');
+    if (!nc.value) nc.value = addDays(this.value, 7);
+});
+
+// Follow-up quick buttons
+document.querySelectorAll('.followup-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const lcVal = document.getElementById('f-last_conversation').value || today;
+        document.getElementById('f-next_conversation').value = addDays(lcVal, parseInt(btn.dataset.days));
+    });
+});
+
+// Panel Save
+document.getElementById('save-btn').addEventListener('click', async () => {
+    if (!currentContactId) return;
+    const data = collectPanelData();
+    // Save sticky values
+    stickySet('working_as', data.working_as);
+    stickySet('source', data.source);
+    const res = await fetch(`/api/contacts/${currentContactId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+    if (res.ok) {
+        showStatus('status', 'Saved.', 'success');
+        loadContacts();
+        const c = await res.json();
+        document.getElementById('panel-title').textContent =
+            `${c.first_name} ${c.last_name || ''}`.trim();
+    } else {
+        showStatus('status', 'Save failed.', 'error');
+    }
+});
+
+// Panel Archive / Unarchive
+document.getElementById('archive-btn').addEventListener('click', async () => {
+    if (!currentContactId) return;
+    const btn = document.getElementById('archive-btn');
+    const doArchive = btn.dataset.archived !== '1';
+    if (!confirm(`${doArchive ? 'Archive' : 'Unarchive'} this contact?`)) return;
+    const res = await fetch(`/api/contacts/${currentContactId}/archive`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ archived: doArchive })
+    });
+    if (res.ok) {
+        showStatus('status', `Contact ${doArchive ? 'archived' : 'unarchived'}.`, 'success');
+        closePanel();
+        loadContacts();
+    } else {
+        showStatus('status', 'Action failed.', 'error');
+    }
+});
+
+// Panel Delete
+document.getElementById('delete-btn').addEventListener('click', async () => {
+    if (!currentContactId) return;
+    if (!confirm('Delete this contact?')) return;
+    await fetch(`/api/contacts/${currentContactId}`, { method: 'DELETE' });
+    closePanel();
+    loadContacts();
+});
+
+// Log interaction
+document.getElementById('log-btn').addEventListener('click', async () => {
+    if (!currentContactId) return;
+    const date = document.getElementById('i-date').value;
+    const type = document.getElementById('i-type').value;
+    const notes = document.getElementById('i-notes').value;
+    if (!date) { alert('Date required'); return; }
+    await fetch('/api/interactions', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ contact_id: currentContactId, date, type, notes })
+    });
+    document.getElementById('i-notes').value = '';
+    loadInteractions(currentContactId);
+    const res2 = await fetch(`/api/contacts/${currentContactId}`);
+    const c = await res2.json();
+    document.getElementById('f-last_conversation').value = c.last_conversation || '';
+});
+
+// New contact
+document.getElementById('new-contact-btn').addEventListener('click', async () => {
+    const res = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ first_name: 'New', last_name: 'Contact' })
+    });
+    const c = await res.json();
+    await loadContacts();
+    openPanel(c.id);
+});
+
+// Close panel
+document.getElementById('panel-close').addEventListener('click', closePanel);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
+function collectPanelData() {
+    return {
+        first_name: document.getElementById('f-first_name').value,
+        last_name: document.getElementById('f-last_name').value,
+        title: document.getElementById('f-title').value,
+        email: document.getElementById('f-email').value,
+        phone: document.getElementById('f-phone').value,
+        mobile_phone: document.getElementById('f-mobile_phone').value,
+        company_name: document.getElementById('f-company_name').value,
+        working_as: document.getElementById('f-working_as').value,
+        tags: Array.from(selectedTags).join(','),
+        source: document.getElementById('f-source').value,
+        linkedin_profile: document.getElementById('f-linkedin_profile').value,
+        website: document.getElementById('f-website').value,
+        calendar_link: document.getElementById('f-calendar_link').value,
+        last_conversation: document.getElementById('f-last_conversation').value,
+        next_conversation: document.getElementById('f-next_conversation').value,
+        ideal_client: parseInt(document.getElementById('f-ideal_client').value),
+        ideal_partner: parseInt(document.getElementById('f-ideal_partner').value),
+        description: document.getElementById('f-description').value,
+    };
+}
+
+async function loadContactCampaigns(contactId) {
+    const wrap = document.getElementById('panel-campaigns-list');
+    const rows = await fetch(`/api/contacts/${contactId}/campaigns`).then(r => r.json());
+    if (!rows.length) {
+        wrap.innerHTML = '<div style="color:var(--text-secondary);font-size:0.75rem;">Not in any campaigns.</div>';
+    } else {
+        const table = document.createElement('table');
+        table.className = 'panel-campaigns-table';
+        rows.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${esc(r.campaign_name)}</td><td>→ ${esc(r.step_name)}</td>`;
+            table.appendChild(tr);
+        });
+        wrap.innerHTML = '';
+        wrap.appendChild(table);
+    }
+    // Populate dropdown with campaigns this contact is NOT in (only campaigns with steps)
+    const assignedIds = new Set(rows.map(r => r.campaign_id));
+    const sel = document.getElementById('panel-add-campaign-sel');
+    sel.innerHTML = '<option value="">— add to campaign —</option>';
+    allCampaigns.filter(c => !assignedIds.has(c.id) && c.step_count > 0).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+    });
+}
+
+document.getElementById('panel-add-campaign-btn').addEventListener('click', async () => {
+    if (!currentContactId) return;
+    const campaignId = document.getElementById('panel-add-campaign-sel').value;
+    if (!campaignId) return;
+    const msgEl = document.getElementById('panel-campaign-msg');
+    const res = await fetch(`/api/campaigns/${campaignId}/contacts`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ contact_id: currentContactId })
+    });
+    const data = await res.json();
+    if (res.ok) {
+        loadContactCampaigns(currentContactId);
+        if (msgEl) {
+            msgEl.textContent = 'Added.';
+            msgEl.style.color = 'var(--accent)';
+            setTimeout(() => { msgEl.textContent = ''; }, 2000);
+        }
+    } else {
+        if (msgEl) {
+            msgEl.textContent = data.error || 'Error';
+            msgEl.style.color = '#e05';
+            setTimeout(() => { msgEl.textContent = ''; }, 3000);
+        }
+    }
+});
+
+function esc(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+init();
+</script>
+{% endblock %}

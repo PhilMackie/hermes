@@ -1,0 +1,12 @@
+# Cloudflare Tunnel Configuration
+# Place at ~/.cloudflared/config.yml on the Pi
+# Replace YOUR-TUNNEL-UUID with actual tunnel UUID from: cloudflared tunnel create hermes
+# Replace yourdomain.com with your actual domain
+
+tunnel: YOUR-TUNNEL-UUID
+credentials-file: /home/pi/.cloudflared/YOUR-TUNNEL-UUID.json
+
+ingress:
+  - hostname: hermes.yourdomain.com
+    service: http://localhost:5003
+  - service: http_status:404

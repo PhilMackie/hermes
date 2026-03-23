@@ -1,0 +1,23 @@
+[Unit]
+Description=Hermes CRM Flask Application
+After=network.target
+
+[Service]
+Type=notify
+User=pi
+Group=pi
+WorkingDirectory=/opt/hermes/app
+Environment="PATH=/opt/hermes/venv/bin"
+EnvironmentFile=/opt/hermes/app/.env
+ExecStart=/opt/hermes/venv/bin/gunicorn -c /opt/hermes/gunicorn.conf.py app:app
+Restart=always
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/hermes
+
+[Install]
+WantedBy=multi-user.target

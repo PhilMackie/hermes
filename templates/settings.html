@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Settings — Hermes{% endblock %}
+
+{% block content %}
+<div id="status" class="status hidden"></div>
+
+<!-- Tags -->
+<div class="settings-section">
+    <h3>Tags</h3>
+    <div class="tag-list" id="tag-list"></div>
+    <div class="add-row">
+        <input type="text" id="new-tag-input" placeholder="New tag name…">
+        <button class="btn btn-primary" id="add-tag-btn">Add</button>
+    </div>
+</div>
+
+<!-- Working As -->
+<div class="settings-section">
+    <h3>Working As (Phil's Companies)</h3>
+    <div class="tag-list" id="working-as-list"></div>
+    <div class="add-row">
+        <input type="text" id="new-wa-input" placeholder="e.g. philmackie.com, PTMP…">
+        <button class="btn btn-primary" id="add-wa-btn">Add</button>
+    </div>
+</div>
+
+<!-- Sources -->
+<div class="settings-section">
+    <h3>Sources</h3>
+    <div class="tag-list" id="source-list"></div>
+    <div class="add-row">
+        <input type="text" id="new-source-input" placeholder="e.g. Referral, LinkedIn, Conference…">
+        <button class="btn btn-primary" id="add-source-btn">Add</button>
+    </div>
+</div>
+
+<!-- Visibility -->
+<div class="settings-section">
+    <h3>Visibility</h3>
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.8125rem;">
+        <input type="checkbox" id="hide-archived-toggle" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer;">
+        Hide archived leads (removes Archived filter from leads view)
+    </label>
+</div>
+
+<!-- Export -->
+<div class="settings-section">
+    <h3>Export</h3>
+    <p style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:12px;">Download contacts as CSV.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a href="/api/export/csv" class="btn btn-primary">Active Contacts</a>
+        <a href="/api/export/csv?include_archived=1" class="btn">All (incl. Archived)</a>
+    </div>
+</div>
+
+<!-- Import -->
+<div class="settings-section">
+    <h3>Import</h3>
+    <p style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:12px;">
+        Re-import from the bundled Mimiran export CSV.
+    </p>
+    <a href="/import" class="btn">Import page →</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let tags = [];
+let waOptions = [];
+let sources = [];
+
+async function loadSettings() {
+    const res = await fetch('/api/settings');
+    const data = await res.json();
+    tags = data.tags || [];
+    waOptions = data.working_as_options || [];
+    sources = data.sources || [];
+    renderTags();
+    renderWA();
+    renderSources();
+}
+
+function renderTags() {
+    const list = document.getElementById('tag-list');
+    list.innerHTML = '';
+    if (!tags.length) {
+        list.innerHTML = '<span style="color:var(--text-secondary);font-size:0.75rem;">No tags yet.</span>';
+        return;
+    }
+    tags.forEach(t => {
+        const div = document.createElement('div');
+        div.className = 'tag-item';
+        div.innerHTML = `<span>${esc(t.name)}</span><button class="tag-item-del" data-id="${t.id}">✕</button>`;
+        div.querySelector('.tag-item-del').addEventListener('click', async () => {
+            await fetch(`/api/tags/${t.id}`, { method: 'DELETE' });
+            loadSettings();
+        });
+        list.appendChild(div);
+    });
+}
+
+function renderWA() {
+    const list = document.getElementById('working-as-list');
+    list.innerHTML = '';
+    if (!waOptions.length) {
+        list.innerHTML = '<span style="color:var(--text-secondary);font-size:0.75rem;">No options yet.</span>';
+        return;
+    }
+    waOptions.forEach(o => {
+        const div = document.createElement('div');
+        div.className = 'tag-item';
+        div.innerHTML = `<span>${esc(o.name)}</span><button class="tag-item-del" data-id="${o.id}">✕</button>`;
+        div.querySelector('.tag-item-del').addEventListener('click', async () => {
+            await fetch(`/api/working_as/${o.id}`, { method: 'DELETE' });
+            loadSettings();
+        });
+        list.appendChild(div);
+    });
+}
+
+function renderSources() {
+    const list = document.getElementById('source-list');
+    list.innerHTML = '';
+    if (!sources.length) {
+        list.innerHTML = '<span style="color:var(--text-secondary);font-size:0.75rem;">No sources yet.</span>';
+        return;
+    }
+    sources.forEach(s => {
+        const div = document.createElement('div');
+        div.className = 'tag-item';
+        div.innerHTML = `<span>${esc(s.name)}</span><button class="tag-item-del" data-id="${s.id}">✕</button>`;
+        div.querySelector('.tag-item-del').addEventListener('click', async () => {
+            await fetch(`/api/sources/${s.id}`, { method: 'DELETE' });
+            loadSettings();
+        });
+        list.appendChild(div);
+    });
+}
+
+document.getElementById('add-source-btn').addEventListener('click', async () => {
+    const input = document.getElementById('new-source-input');
+    const name = input.value.trim();
+    if (!name) return;
+    const res = await fetch('/api/sources', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name })
+    });
+    if (res.ok) { input.value = ''; loadSettings(); }
+    else { const d = await res.json(); showStatus('status', d.error || 'Error', 'error'); }
+});
+document.getElementById('new-source-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('add-source-btn').click();
+});
+
+document.getElementById('add-tag-btn').addEventListener('click', async () => {
+    const input = document.getElementById('new-tag-input');
+    const name = input.value.trim();
+    if (!name) return;
+    const res = await fetch('/api/tags', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name })
+    });
+    if (res.ok) { input.value = ''; loadSettings(); }
+    else { const d = await res.json(); showStatus('status', d.error || 'Error', 'error'); }
+});
+document.getElementById('new-tag-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('add-tag-btn').click();
+});
+
+document.getElementById('add-wa-btn').addEventListener('click', async () => {
+    const input = document.getElementById('new-wa-input');
+    const name = input.value.trim();
+    if (!name) return;
+    const res = await fetch('/api/working_as', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name })
+    });
+    if (res.ok) { input.value = ''; loadSettings(); }
+    else { const d = await res.json(); showStatus('status', d.error || 'Error', 'error'); }
+});
+document.getElementById('new-wa-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('add-wa-btn').click();
+});
+
+// Visibility toggle
+const hideArchivedToggle = document.getElementById('hide-archived-toggle');
+hideArchivedToggle.checked = localStorage.getItem('hermes-hide-archived') === '1';
+hideArchivedToggle.addEventListener('change', () => {
+    localStorage.setItem('hermes-hide-archived', hideArchivedToggle.checked ? '1' : '0');
+});
+
+function esc(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+loadSettings();
+</script>
+{% endblock %}

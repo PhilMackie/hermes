@@ -1,0 +1,733 @@
+{% extends "base.html" %}
+{% block title %}Campaigns — Hermes{% endblock %}
+{% block head %}<style>.container { max-width: none; }</style>{% endblock %}
+
+{% block content %}
+<div id="status" class="status hidden"></div>
+
+<!-- Toolbar -->
+<div class="campaigns-toolbar">
+    <select id="campaign-sel" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono);font-size:0.8125rem;padding:8px 10px;cursor:pointer;outline:none;min-width:180px;">
+        <option value="">— select campaign —</option>
+    </select>
+    <button class="btn btn-primary" id="new-campaign-btn">+ New Campaign</button>
+    <button class="btn btn-danger" id="del-campaign-btn" style="display:none;">Delete Campaign</button>
+</div>
+
+<!-- Notes -->
+<textarea class="campaigns-notes hidden" id="campaign-notes" placeholder="Campaign notes…" rows="2"></textarea>
+
+<!-- Step manager -->
+<div class="step-manager hidden" id="step-manager">
+    <span style="font-size:0.5625rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-secondary);flex-shrink:0;">Steps:</span>
+    <div class="step-chips-wrap" id="step-chips-wrap"></div>
+    <div style="display:flex;gap:6px;flex-shrink:0;">
+        <input type="text" id="step-name-input" placeholder="New step…" style="width:140px;padding:6px 10px;font-size:0.8125rem;">
+        <button class="btn btn-primary" id="add-step-btn" style="padding:6px 12px;">Add</button>
+    </div>
+</div>
+
+<!-- Add contact -->
+<div class="add-contact-bar hidden" id="add-contact-bar">
+    <div class="contact-search-wrap">
+        <input type="text" id="contact-search" placeholder="Add contact to campaign…" autocomplete="off">
+        <div class="contact-autocomplete hidden" id="contact-autocomplete"></div>
+    </div>
+</div>
+
+<!-- Kanban board -->
+<div class="kanban-board-wrap">
+    <div class="kanban-board" id="kanban-board"></div>
+</div>
+
+<!-- ── Contact Detail Panel ──────────────────────────────────────────────── -->
+<div id="contact-panel">
+    <div class="panel-header">
+        <span class="panel-title" id="panel-title">Contact</span>
+        <button class="panel-close" id="panel-close">✕</button>
+    </div>
+    <div class="panel-body">
+        <div class="panel-grid">
+            <div class="panel-field-wrap">
+                <span class="panel-label">First Name</span>
+                <input class="panel-field" id="f-first_name" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Last Name</span>
+                <input class="panel-field" id="f-last_name" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Title</span>
+                <input class="panel-field" id="f-title" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Company</span>
+                <input class="panel-field" id="f-company_name" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Working As</span>
+                <select class="panel-field" id="f-working_as" style="background:#080808;">
+                    <option value="">— select —</option>
+                </select>
+            </div>
+            <div class="panel-field-wrap span2">
+                <span class="panel-label">Tags</span>
+                <div class="tag-picker" id="f-tags-picker"></div>
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Source</span>
+                <select class="panel-field" id="f-source" style="background:#080808;">
+                    <option value="">— select —</option>
+                </select>
+            </div>
+        </div>
+        <div class="panel-grid">
+            <div class="panel-field-wrap span2">
+                <span class="panel-label">Email</span>
+                <input class="panel-field" id="f-email" type="email">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Phone</span>
+                <input class="panel-field" id="f-phone" type="tel">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Mobile</span>
+                <input class="panel-field" id="f-mobile_phone" type="tel">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">LinkedIn</span>
+                <input class="panel-field" id="f-linkedin_profile" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Website</span>
+                <input class="panel-field" id="f-website" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Calendar Link</span>
+                <input class="panel-field" id="f-calendar_link" type="text">
+            </div>
+        </div>
+        <div class="panel-grid">
+            <div class="panel-field-wrap">
+                <span class="panel-label">Last Conversation</span>
+                <input class="panel-field" id="f-last_conversation" type="date">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Next Follow-up</span>
+                <input class="panel-field" id="f-next_conversation" type="date">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Ideal Client</span>
+                <select class="panel-field" id="f-ideal_client" style="background:#080808;">
+                    <option value="0">No</option>
+                    <option value="1">Yes ★</option>
+                </select>
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Ideal Partner</span>
+                <select class="panel-field" id="f-ideal_partner" style="background:#080808;">
+                    <option value="0">No</option>
+                    <option value="1">Yes ★</option>
+                </select>
+            </div>
+        </div>
+        <div class="panel-field-wrap" style="margin-bottom:14px;">
+            <span class="panel-label">Description / Notes</span>
+            <textarea class="panel-field" id="f-description" rows="3"></textarea>
+        </div>
+        <hr class="panel-divider">
+        <span class="panel-section-label">Interactions</span>
+        <div class="interaction-split">
+            <div>
+                <div id="interaction-list"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div class="panel-field-wrap">
+                        <span class="panel-label">Date</span>
+                        <input class="panel-field" id="i-date" type="date">
+                    </div>
+                    <div class="panel-field-wrap">
+                        <span class="panel-label">Type</span>
+                        <select class="panel-field" id="i-type" style="background:#080808;">
+                            <option value="call">Call</option>
+                            <option value="email">Email</option>
+                            <option value="meeting">Meeting</option>
+                            <option value="note">Note</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <textarea class="panel-field" id="i-notes" rows="4" placeholder="Notes…"></textarea>
+                <button class="btn btn-primary" id="log-btn" style="align-self:flex-start;">Log</button>
+            </div>
+        </div>
+    </div>
+    <div class="panel-actions">
+        <button class="btn btn-primary" id="save-btn">Save</button>
+        <button class="btn btn-danger" id="delete-btn">Delete</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentCampaignId = null;
+let boardData = null;
+let sortableInstances = [];
+let stepSortable = null;
+let selectedContactId = null;
+let notesTimer = null;
+let searchTimer = null;
+let collapsedSteps = new Set();
+let currentContactId = null;
+let allTags = [];
+let workingAsOptions = [];
+let allSources = [];
+let panelSelectedTags = new Set();
+let allCampaignsList = [];
+const today = new Date().toISOString().split('T')[0];
+
+// ── Init ───────────────────────────────────────────────────────────────────
+
+async function init() {
+    await Promise.all([loadCampaigns(), loadSettings()]);
+
+    document.getElementById('campaign-sel').addEventListener('change', function() {
+        currentCampaignId = this.value ? parseInt(this.value) : null;
+        if (currentCampaignId) {
+            showControls();
+            loadBoard();
+        } else {
+            hideControls();
+        }
+    });
+
+    document.getElementById('new-campaign-btn').addEventListener('click', async () => {
+        const name = prompt('Campaign name:');
+        if (!name || !name.trim()) return;
+        const res = await fetch('/api/campaigns', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name: name.trim() })
+        });
+        const data = await res.json();
+        if (!res.ok) { showStatus('status', data.error || 'Error', 'error'); return; }
+        await loadCampaigns(data.id);
+    });
+
+    document.getElementById('del-campaign-btn').addEventListener('click', async () => {
+        if (!currentCampaignId) return;
+        const sel = document.getElementById('campaign-sel');
+        const name = sel.options[sel.selectedIndex]?.text || 'this campaign';
+        if (!confirm(`Delete "${name}" and all its data?`)) return;
+        await fetch(`/api/campaigns/${currentCampaignId}`, { method: 'DELETE' });
+        currentCampaignId = null;
+        hideControls();
+        await loadCampaigns();
+    });
+
+    document.getElementById('add-step-btn').addEventListener('click', addStep);
+    document.getElementById('step-name-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') addStep();
+    });
+
+    document.getElementById('campaign-notes').addEventListener('input', () => {
+        clearTimeout(notesTimer);
+        notesTimer = setTimeout(saveNotes, 800);
+    });
+
+    const searchInput = document.getElementById('contact-search');
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => searchContacts(searchInput.value.trim()), 300);
+    });
+    searchInput.addEventListener('blur', () => {
+        setTimeout(() => {
+            document.getElementById('contact-autocomplete').classList.add('hidden');
+        }, 150);
+    });
+}
+
+// ── Campaigns ──────────────────────────────────────────────────────────────
+
+async function loadCampaigns(selectId) {
+    const res = await fetch('/api/campaigns');
+    const campaigns = await res.json();
+    allCampaignsList = campaigns;
+    const sel = document.getElementById('campaign-sel');
+    const prev = selectId || currentCampaignId || parseInt(sel.value) || null;
+    sel.innerHTML = '<option value="">— select campaign —</option>';
+    campaigns.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+    });
+    if (prev && campaigns.find(c => c.id === prev)) {
+        sel.value = prev;
+        currentCampaignId = prev;
+        showControls();
+        loadBoard();
+    } else {
+        currentCampaignId = null;
+        hideControls();
+    }
+}
+
+function showControls() {
+    document.getElementById('campaign-notes').classList.remove('hidden');
+    document.getElementById('step-manager').classList.remove('hidden');
+    document.getElementById('add-contact-bar').classList.remove('hidden');
+    document.getElementById('del-campaign-btn').style.display = '';
+}
+
+function hideControls() {
+    document.getElementById('campaign-notes').classList.add('hidden');
+    document.getElementById('step-manager').classList.add('hidden');
+    document.getElementById('add-contact-bar').classList.add('hidden');
+    document.getElementById('del-campaign-btn').style.display = 'none';
+    document.getElementById('kanban-board').innerHTML = '';
+    document.getElementById('step-chips-wrap').innerHTML = '';
+}
+
+// ── Board ──────────────────────────────────────────────────────────────────
+
+async function loadBoard() {
+    if (!currentCampaignId) return;
+    const res = await fetch(`/api/campaigns/${currentCampaignId}/board`);
+    boardData = await res.json();
+    document.getElementById('campaign-notes').value = boardData.campaign.notes || '';
+    renderStepChips();
+    renderBoard();
+}
+
+async function saveNotes() {
+    if (!currentCampaignId) return;
+    const notes = document.getElementById('campaign-notes').value;
+    await fetch(`/api/campaigns/${currentCampaignId}/notes`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ notes })
+    });
+}
+
+// ── Steps ──────────────────────────────────────────────────────────────────
+
+function renderStepChips() {
+    if (stepSortable) { stepSortable.destroy(); stepSortable = null; }
+    const wrap = document.getElementById('step-chips-wrap');
+    wrap.innerHTML = '';
+    (boardData.steps || []).forEach(step => {
+        const chip = document.createElement('span');
+        chip.className = 'step-chip';
+        chip.dataset.id = step.id;
+        chip.innerHTML = `${esc(step.name)}<button class="step-chip-del" data-id="${step.id}" title="Delete step">✕</button>`;
+        chip.querySelector('.step-chip-del').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!confirm(`Delete step "${step.name}"? Contacts will move to the previous step.`)) return;
+            await fetch(`/api/campaigns/${currentCampaignId}/steps/${step.id}`, { method: 'DELETE' });
+            loadBoard();
+        });
+        wrap.appendChild(chip);
+    });
+    stepSortable = Sortable.create(wrap, {
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        onEnd: async () => {
+            const chips = wrap.querySelectorAll('.step-chip');
+            const order = Array.from(chips).map(c => parseInt(c.dataset.id));
+            await fetch(`/api/campaigns/${currentCampaignId}/steps/reorder`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ order })
+            });
+            loadBoard();
+        }
+    });
+}
+
+async function addStep() {
+    const input = document.getElementById('step-name-input');
+    const name = input.value.trim();
+    if (!name || !currentCampaignId) return;
+    const res = await fetch(`/api/campaigns/${currentCampaignId}/steps`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name })
+    });
+    if (res.ok) {
+        input.value = '';
+        loadBoard();
+    }
+}
+
+// ── Board render ───────────────────────────────────────────────────────────
+
+function renderBoard() {
+    sortableInstances.forEach(s => s.destroy());
+    sortableInstances = [];
+
+    const board = document.getElementById('kanban-board');
+    board.innerHTML = '';
+
+    const steps = boardData.steps || [];
+    if (!steps.length) {
+        board.innerHTML = '<div class="campaigns-empty">No steps yet. Add steps above to build the board.</div>';
+        return;
+    }
+
+    steps.forEach(step => {
+        const cards = boardData.cards_by_step[step.id] || [];
+        const col = document.createElement('div');
+        col.className = 'kanban-col';
+        col.dataset.stepId = step.id;
+        if (collapsedSteps.has(step.id)) col.classList.add('collapsed');
+
+        const header = document.createElement('div');
+        header.className = 'kanban-col-header';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'kanban-col-name';
+        nameSpan.textContent = step.name;
+        const countSpan = document.createElement('span');
+        countSpan.className = 'kanban-col-count';
+        countSpan.id = `col-count-${step.id}`;
+        countSpan.textContent = cards.length;
+        const collapseBtn = document.createElement('button');
+        collapseBtn.className = 'kanban-col-collapse';
+        collapseBtn.innerHTML = '&#9900;';
+        collapseBtn.title = 'Hide/show';
+        collapseBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            const nowCollapsed = col.classList.toggle('collapsed');
+            if (nowCollapsed) collapsedSteps.add(step.id);
+            else collapsedSteps.delete(step.id);
+        });
+
+        header.appendChild(nameSpan);
+        header.appendChild(countSpan);
+        header.appendChild(collapseBtn);
+        col.appendChild(header);
+
+        const cardsWrap = document.createElement('div');
+        cardsWrap.className = 'kanban-cards';
+        cardsWrap.id = `kanban-cards-${step.id}`;
+        cards.forEach(card => cardsWrap.appendChild(buildCard(card)));
+        col.appendChild(cardsWrap);
+
+        board.appendChild(col);
+
+        const sortable = Sortable.create(cardsWrap, {
+            group: 'campaign-cards',
+            handle: '.kanban-card-handle',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            onEnd: async (evt) => {
+                const fromStepId = parseInt(evt.from.closest('.kanban-col').dataset.stepId);
+                const toStepId = parseInt(evt.to.closest('.kanban-col').dataset.stepId);
+                const contactId = parseInt(evt.item.dataset.contactId);
+
+                if (fromStepId !== toStepId) {
+                    await fetch(`/api/campaigns/${currentCampaignId}/contacts/${contactId}/step`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ step_id: toStepId })
+                    });
+                    updateColCount(fromStepId);
+                    updateColCount(toStepId);
+                } else {
+                    const cards = evt.to.querySelectorAll('.kanban-card');
+                    const order = Array.from(cards).map(c => parseInt(c.dataset.contactId));
+                    await fetch(`/api/campaigns/${currentCampaignId}/contacts/reorder`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ step_id: toStepId, order })
+                    });
+                }
+            }
+        });
+        sortableInstances.push(sortable);
+    });
+}
+
+function buildCard(card) {
+    const div = document.createElement('div');
+    div.className = 'kanban-card';
+    div.dataset.contactId = card.contact_id;
+
+    const name = [card.first_name, card.last_name].filter(Boolean).join(' ');
+    const tags = card.tags ? card.tags.split(',').filter(t => t.trim()).map(t =>
+        `<span class="tag-pill">${esc(t.trim())}</span>`
+    ).join('') : '';
+
+    div.innerHTML = `
+        <div class="kanban-card-top">
+            <span class="kanban-card-handle" title="Drag">⠿</span>
+            <span class="kanban-card-name">${esc(name)}</span>
+            <button class="kanban-card-remove" title="Remove from campaign" data-contact-id="${card.contact_id}">✕</button>
+        </div>
+        ${card.company_name ? `<div class="kanban-card-company">${esc(card.company_name)}</div>` : ''}
+        ${tags ? `<div class="kanban-card-tags">${tags}</div>` : ''}
+    `;
+
+    div.querySelector('.kanban-card-remove').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm(`Remove ${esc(name)} from this campaign?`)) return;
+        await fetch(`/api/campaigns/${currentCampaignId}/contacts/${card.contact_id}`, { method: 'DELETE' });
+        loadBoard();
+    });
+
+    div.addEventListener('click', (e) => {
+        if (e.target.classList.contains('kanban-card-handle') || e.target.classList.contains('kanban-card-remove')) return;
+        openContactPanel(card.contact_id);
+    });
+
+    return div;
+}
+
+function updateColCount(stepId) {
+    const cardsWrap = document.getElementById(`kanban-cards-${stepId}`);
+    const countEl = document.getElementById(`col-count-${stepId}`);
+    if (cardsWrap && countEl) {
+        countEl.textContent = cardsWrap.querySelectorAll('.kanban-card').length;
+    }
+}
+
+// ── Contact search ─────────────────────────────────────────────────────────
+
+async function searchContacts(q) {
+    const dropdown = document.getElementById('contact-autocomplete');
+    if (!q || !currentCampaignId) { dropdown.classList.add('hidden'); return; }
+    const res = await fetch(`/api/campaigns/${currentCampaignId}/search-contacts?q=${encodeURIComponent(q)}`);
+    const contacts = await res.json();
+    dropdown.innerHTML = '';
+    if (!contacts.length) { dropdown.classList.add('hidden'); return; }
+    contacts.forEach(c => {
+        const name = [c.first_name, c.last_name].filter(Boolean).join(' ');
+        const item = document.createElement('div');
+        item.className = 'contact-autocomplete-item';
+        item.textContent = name + (c.company_name ? ` — ${c.company_name}` : '');
+        item.addEventListener('mousedown', () => {
+            selectedContactId = c.id;
+            document.getElementById('contact-search').value = name;
+            dropdown.classList.add('hidden');
+            addContactToCampaign(c.id);
+        });
+        dropdown.appendChild(item);
+    });
+    dropdown.classList.remove('hidden');
+}
+
+async function addContactToCampaign(contactId) {
+    if (!currentCampaignId || !contactId) return;
+    const res = await fetch(`/api/campaigns/${currentCampaignId}/contacts`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ contact_id: contactId })
+    });
+    const data = await res.json();
+    document.getElementById('contact-search').value = '';
+    selectedContactId = null;
+    if (!res.ok) { showStatus(data.error || 'Error'); return; }
+    loadBoard();
+}
+
+// ── Settings & Panel ───────────────────────────────────────────────────────
+
+async function loadSettings() {
+    const res = await fetch('/api/settings');
+    const data = await res.json();
+    allTags = data.tags || [];
+    workingAsOptions = data.working_as_options || [];
+    allSources = data.sources || [];
+}
+
+async function openContactPanel(contactId) {
+    currentContactId = contactId;
+    const res = await fetch(`/api/contacts/${contactId}`);
+    const c = await res.json();
+    fillPanel(c);
+    loadInteractions(contactId);
+    document.getElementById('i-date').value = today;
+    document.getElementById('contact-panel').classList.add('open');
+}
+
+function fillPanel(c) {
+    document.getElementById('panel-title').textContent = `${c.first_name} ${c.last_name || ''}`.trim();
+    ['first_name','last_name','title','email','phone','mobile_phone','calendar_link',
+     'last_conversation','next_conversation','linkedin_profile','description',
+     'company_name','website'].forEach(f => {
+        const el = document.getElementById('f-' + f);
+        if (el) el.value = c[f] || '';
+    });
+    document.getElementById('f-ideal_client').value = c.ideal_client ? '1' : '0';
+    document.getElementById('f-ideal_partner').value = c.ideal_partner ? '1' : '0';
+
+    const waSel = document.getElementById('f-working_as');
+    waSel.innerHTML = '<option value="">— select —</option>';
+    workingAsOptions.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.name; opt.textContent = o.name;
+        waSel.appendChild(opt);
+    });
+    waSel.value = c.working_as || '';
+
+    const srcSel = document.getElementById('f-source');
+    srcSel.innerHTML = '<option value="">— select —</option>';
+    allSources.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.name; opt.textContent = s.name;
+        srcSel.appendChild(opt);
+    });
+    srcSel.value = c.source || '';
+
+    panelSelectedTags = new Set((c.tags || '').split(',').map(t => t.trim()).filter(Boolean));
+    renderPanelTagPicker();
+}
+
+function renderPanelTagPicker() {
+    const wrap = document.getElementById('f-tags-picker');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    if (!allTags.length) {
+        wrap.innerHTML = '<span style="color:var(--text-secondary);font-size:0.75rem;">No tags — create in Settings.</span>';
+        return;
+    }
+    allTags.forEach(t => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tag-chip' + (panelSelectedTags.has(t.name) ? ' active' : '');
+        chip.style.cssText = 'margin:2px 3px 2px 0;';
+        chip.textContent = t.name;
+        chip.addEventListener('click', () => {
+            if (panelSelectedTags.has(t.name)) panelSelectedTags.delete(t.name);
+            else panelSelectedTags.add(t.name);
+            renderPanelTagPicker();
+        });
+        wrap.appendChild(chip);
+    });
+}
+
+function closePanel() {
+    document.getElementById('contact-panel').classList.remove('open');
+    currentContactId = null;
+}
+
+async function loadInteractions(contactId) {
+    const res = await fetch(`/api/contacts/${contactId}/interactions`);
+    const interactions = await res.json();
+    const list = document.getElementById('interaction-list');
+    list.innerHTML = '';
+    if (!interactions.length) {
+        list.innerHTML = '<div style="color:var(--text-secondary);font-size:0.75rem;">No interactions yet.</div>';
+        return;
+    }
+    interactions.forEach(i => {
+        const div = document.createElement('div');
+        div.className = 'interaction-item';
+        div.innerHTML = `
+            <div class="interaction-meta">
+                <span class="interaction-date">${esc(i.date)}</span>
+                <span class="interaction-type">${esc(i.type)}</span>
+                <button class="interaction-del" data-id="${i.id}" title="Delete">✕</button>
+            </div>
+            ${i.notes ? `<div class="interaction-notes">${esc(i.notes)}</div>` : ''}
+        `;
+        list.appendChild(div);
+    });
+    list.querySelectorAll('.interaction-del').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            await fetch(`/api/interactions/${btn.dataset.id}`, { method: 'DELETE' });
+            loadInteractions(currentContactId);
+        });
+    });
+}
+
+document.getElementById('save-btn').addEventListener('click', async () => {
+    if (!currentContactId) return;
+    const data = {
+        first_name: document.getElementById('f-first_name').value,
+        last_name: document.getElementById('f-last_name').value,
+        title: document.getElementById('f-title').value,
+        email: document.getElementById('f-email').value,
+        phone: document.getElementById('f-phone').value,
+        mobile_phone: document.getElementById('f-mobile_phone').value,
+        company_name: document.getElementById('f-company_name').value,
+        working_as: document.getElementById('f-working_as').value,
+        tags: Array.from(panelSelectedTags).join(','),
+        source: document.getElementById('f-source').value,
+        linkedin_profile: document.getElementById('f-linkedin_profile').value,
+        website: document.getElementById('f-website').value,
+        calendar_link: document.getElementById('f-calendar_link').value,
+        last_conversation: document.getElementById('f-last_conversation').value,
+        next_conversation: document.getElementById('f-next_conversation').value,
+        ideal_client: parseInt(document.getElementById('f-ideal_client').value),
+        ideal_partner: parseInt(document.getElementById('f-ideal_partner').value),
+        description: document.getElementById('f-description').value,
+    };
+    const res = await fetch(`/api/contacts/${currentContactId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+    if (res.ok) {
+        const c = await res.json();
+        document.getElementById('panel-title').textContent = `${c.first_name} ${c.last_name || ''}`.trim();
+        showStatus('status', 'Saved.', 'success');
+        loadBoard();
+    } else {
+        showStatus('status', 'Save failed.', 'error');
+    }
+});
+
+document.getElementById('delete-btn').addEventListener('click', async () => {
+    if (!currentContactId) return;
+    if (!confirm('Delete this contact?')) return;
+    await fetch(`/api/contacts/${currentContactId}`, { method: 'DELETE' });
+    closePanel();
+    loadBoard();
+});
+
+document.getElementById('log-btn').addEventListener('click', async () => {
+    if (!currentContactId) return;
+    const date = document.getElementById('i-date').value;
+    const type = document.getElementById('i-type').value;
+    const notes = document.getElementById('i-notes').value;
+    if (!date) { alert('Date required'); return; }
+    await fetch('/api/interactions', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ contact_id: currentContactId, date, type, notes })
+    });
+    document.getElementById('i-notes').value = '';
+    loadInteractions(currentContactId);
+    const res2 = await fetch(`/api/contacts/${currentContactId}`);
+    const c = await res2.json();
+    document.getElementById('f-last_conversation').value = c.last_conversation || '';
+});
+
+document.getElementById('panel-close').addEventListener('click', closePanel);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function esc(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+init();
+
+// Refresh board if page is restored from bfcache (browser back/forward)
+window.addEventListener('pageshow', (e) => {
+    if (e.persisted && currentCampaignId) loadBoard();
+});
+</script>
+{% endblock %}

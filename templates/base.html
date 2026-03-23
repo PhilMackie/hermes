@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#f0a500">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>{% block title %}Hermes{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/icons/hermes.svg">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body class="scanlines">
+    <nav class="app-nav">
+        <span class="app-title"><img src="/static/icons/hermes.svg" style="width:14px;height:14px;vertical-align:middle;margin-right:5px;image-rendering:pixelated;">Hermes</span>
+        <a href="/" class="nav-tab {% if request.path == '/' %}active{% endif %}">Leads</a>
+        <a href="/call" class="nav-tab {% if request.path == '/call' %}active{% endif %}">Call</a>
+        <a href="/campaigns" class="nav-tab {% if request.path == '/campaigns' %}active{% endif %}">Campaigns</a>
+        <div class="nav-right">
+            <a href="/settings" class="btn {% if request.path == '/settings' %}btn-primary{% endif %}" style="font-size:0.5625rem;padding:6px 10px;">Settings</a>
+            <a href="/logout" class="btn" style="font-size:0.5625rem;padding:6px 10px;margin-left:8px;">Logout</a>
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="/static/js/app.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

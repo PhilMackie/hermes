@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+{% block title %}Call Mode — Hermes{% endblock %}
+
+{% block content %}
+<!-- Filter bar -->
+<div style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+            <span style="font-size:0.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-secondary);">Working As</span>
+            <select id="filter-working-as" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono);font-size:0.8125rem;padding:6px 10px;cursor:pointer;outline:none;min-width:160px;">
+                <option value="">All</option>
+            </select>
+        </div>
+        <button class="btn" id="clear-filters-btn" style="padding:6px 12px;">✕ Clear</button>
+        <div id="filter-summary" style="font-size:0.75rem;color:var(--text-secondary);align-self:center;"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px;">
+        <span style="font-size:0.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-secondary);">Tags (pick any)</span>
+        <div id="tag-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+</div>
+
+<div id="status" class="status hidden"></div>
+<div id="call-container"></div>
+
+<!-- ── Edit Profile Panel ───────────────────────────────────────────────── -->
+<div id="contact-panel">
+    <div class="panel-header">
+        <span class="panel-title" id="panel-title">Contact</span>
+        <button class="panel-close" id="panel-close">✕</button>
+    </div>
+    <div class="panel-body">
+        <div class="panel-grid">
+            <div class="panel-field-wrap">
+                <span class="panel-label">First Name</span>
+                <input class="panel-field" id="f-first_name" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Last Name</span>
+                <input class="panel-field" id="f-last_name" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Title</span>
+                <input class="panel-field" id="f-title" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Company</span>
+                <input class="panel-field" id="f-company_name" type="text">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Working As</span>
+                <select class="panel-field" id="f-working_as" style="background:#080808;">
+                    <option value="">— select —</option>
+                </select>
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Tags (comma-sep)</span>
+                <input class="panel-field" id="f-tags" type="text">
+            </div>
+        </div>
+        <div class="panel-grid">
+            <div class="panel-field-wrap span2">
+                <span class="panel-label">Email</span>
+                <input class="panel-field" id="f-email" type="email">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Phone</span>
+                <input class="panel-field" id="f-phone" type="tel">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Mobile</span>
+                <input class="panel-field" id="f-mobile_phone" type="tel">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Last Conversation</span>
+                <input class="panel-field" id="f-last_conversation" type="date">
+            </div>
+            <div class="panel-field-wrap">
+                <span class="panel-label">Next Follow-up</span>
+                <input class="panel-field" id="f-next_conversation" type="date">
+            </div>
+        </div>
+        <div class="panel-field-wrap" style="margin-bottom:14px;">
+            <span class="panel-label">Description / Notes</span>
+            <textarea class="panel-field" id="f-description" rows="4"></textarea>
+        </div>
+    </div>
+    <div class="panel-actions">
+        <button class="btn btn-primary" id="panel-save-btn">Save</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const today = new Date().toISOString().split('T')[0];
+let currentContact = null;
+let activeWorkingAs = '';
+let activeTags = new Set();
+let workingAsOptions = [];
+
+async function init() {
+    const res = await fetch('/api/settings');
+    const data = await res.json();
+    workingAsOptions = data.working_as_options || [];
+
+    const waSel = document.getElementById('filter-working-as');
+    workingAsOptions.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.name;
+        opt.textContent = o.name;
+        waSel.appendChild(opt);
+    });
+
+    // Populate panel working-as select
+    const panelWA = document.getElementById('f-working_as');
+    workingAsOptions.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.name;
+        opt.textContent = o.name;
+        panelWA.appendChild(opt);
+    });
+
+    // Restore filters from sessionStorage
+    const savedWA = sessionStorage.getItem('call_working_as') || '';
+    const savedTags = JSON.parse(sessionStorage.getItem('call_tags') || '[]');
+    waSel.value = savedWA;
+    activeWorkingAs = savedWA;
+    activeTags = new Set(savedTags);
+
+    renderTagChips(data.tags || []);
+    updateFilterSummary();
+
+    waSel.addEventListener('change', () => {
+        activeWorkingAs = waSel.value;
+        sessionStorage.setItem('call_working_as', activeWorkingAs);
+        updateFilterSummary();
+        loadNext();
+    });
+
+    document.getElementById('clear-filters-btn').addEventListener('click', () => {
+        activeWorkingAs = '';
+        activeTags.clear();
+        waSel.value = '';
+        sessionStorage.removeItem('call_working_as');
+        sessionStorage.removeItem('call_tags');
+        renderTagChips(data.tags || []);
+        updateFilterSummary();
+        loadNext();
+    });
+
+    // Panel close / save
+    document.getElementById('panel-close').addEventListener('click', closePanel);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+    document.getElementById('panel-save-btn').addEventListener('click', savePanel);
+
+    await loadNext();
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────
+
+function renderTagChips(tags) {
+    const wrap = document.getElementById('tag-chips');
+    wrap.innerHTML = '';
+    if (!tags.length) {
+        wrap.innerHTML = '<span style="color:var(--text-secondary);font-size:0.75rem;">No tags — add some in Settings.</span>';
+        return;
+    }
+    tags.forEach(t => {
+        const btn = document.createElement('button');
+        btn.className = 'tag-chip' + (activeTags.has(t.name) ? ' active' : '');
+        btn.textContent = t.name;
+        btn.addEventListener('click', () => {
+            if (activeTags.has(t.name)) activeTags.delete(t.name);
+            else activeTags.add(t.name);
+            btn.classList.toggle('active', activeTags.has(t.name));
+            sessionStorage.setItem('call_tags', JSON.stringify([...activeTags]));
+            updateFilterSummary();
+            loadNext();
+        });
+        wrap.appendChild(btn);
+    });
+}
+
+function updateFilterSummary() {
+    const parts = [];
+    if (activeWorkingAs) parts.push(`working as <strong style="color:var(--accent)">${esc(activeWorkingAs)}</strong>`);
+    if (activeTags.size) {
+        const tagList = [...activeTags].map(t => `<strong style="color:var(--accent)">${esc(t)}</strong>`).join(' or ');
+        parts.push(`tag: ${tagList}`);
+    }
+    document.getElementById('filter-summary').innerHTML =
+        parts.length ? 'Filtering: ' + parts.join(' · ') : '';
+}
+
+// ── Call card ─────────────────────────────────────────────────────────────
+
+async function loadNext() {
+    const params = new URLSearchParams();
+    if (activeWorkingAs) params.set('working_as', activeWorkingAs);
+    if (activeTags.size) params.set('tags', [...activeTags].join(','));
+    const res = await fetch('/api/call/next?' + params);
+    const data = await res.json();
+    currentContact = data.contact;
+    render(currentContact);
+}
+
+function render(c) {
+    const wrap = document.getElementById('call-container');
+    if (!c) {
+        const filterNote = (activeWorkingAs || activeTags.size)
+            ? '<div style="margin-top:8px;font-size:0.75rem;color:var(--text-secondary);">Try clearing the filters above.</div>'
+            : '<div style="margin-top:8px;font-size:0.75rem;color:var(--text-secondary);">Set a <em>Next Follow-up</em> date on contacts in the Leads view.</div>';
+        wrap.innerHTML = `
+            <div class="call-empty">
+                <div style="font-size:2rem;margin-bottom:12px;">✓</div>
+                <div>No contacts with upcoming follow-ups${activeWorkingAs || activeTags.size ? ' matching these filters' : ''}.</div>
+                ${filterNote}
+            </div>`;
+        return;
+    }
+
+    wrap.innerHTML = `
+        <div class="call-card">
+            <div class="call-name">
+                <button id="edit-profile-btn" style="background:transparent;border:none;cursor:pointer;font-family:var(--font-mono);font-size:inherit;font-weight:inherit;color:var(--accent);padding:0;text-align:left;">${esc(c.first_name)} ${esc(c.last_name || '')}</button>
+            </div>
+            <div class="call-meta">
+                ${c.company_name ? esc(c.company_name) + ' · ' : ''}
+                ${c.working_as ? '<span style="color:var(--accent-dim)">via ' + esc(c.working_as) + '</span> · ' : ''}
+                Follow-up: <span style="color:var(--accent)">${esc(c.next_conversation || '—')}</span>
+            </div>
+
+            <div class="call-field-row">
+                ${c.email ? `<div class="call-field"><span style="font-size:0.5rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-secondary);">Email</span><a href="mailto:${esc(c.email)}" style="color:var(--accent);font-size:0.875rem;">${esc(c.email)}</a></div>` : ''}
+                ${c.phone ? `<div class="call-field"><span style="font-size:0.5rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-secondary);">Phone</span><a href="tel:${esc(c.phone)}" style="color:var(--accent);font-size:0.875rem;">${esc(c.phone)}</a></div>` : ''}
+                ${c.mobile_phone ? `<div class="call-field"><span style="font-size:0.5rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-secondary);">Mobile</span><a href="tel:${esc(c.mobile_phone)}" style="color:var(--accent);font-size:0.875rem;">${esc(c.mobile_phone)}</a></div>` : ''}
+            </div>
+
+            ${c.tags ? `<div style="margin-bottom:12px;">${renderTagPills(c.tags)}</div>` : ''}
+            ${c.description ? `<div style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:16px;line-height:1.55;">${esc(c.description)}</div>` : ''}
+
+            <!-- Log interaction -->
+            <div style="background:var(--bg-secondary);padding:12px;margin-bottom:16px;">
+                <div style="font-size:0.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px;">Log Interaction</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                    <div>
+                        <span style="font-size:0.5rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-secondary);">Date</span>
+                        <input type="date" id="i-date" value="${today}" style="width:100%;background:#000;border:1px solid var(--border);color:#fff;font-family:var(--font-mono);padding:6px;font-size:0.8125rem;">
+                    </div>
+                    <div>
+                        <span style="font-size:0.5rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-secondary);">Type</span>
+                        <select id="i-type" style="width:100%;background:#000;border:1px solid var(--border);color:#fff;font-family:var(--font-mono);padding:6px;font-size:0.8125rem;">
+                            <option value="call">Call</option>
+                            <option value="email">Email</option>
+                            <option value="meeting">Meeting</option>
+                            <option value="note">Note</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <textarea id="i-notes" rows="3" placeholder="Notes…" style="width:100%;background:#000;border:1px solid var(--border);color:#fff;font-family:var(--font-mono);padding:6px;font-size:0.8125rem;resize:vertical;outline:none;"></textarea>
+            </div>
+
+            <div class="call-actions">
+                <button class="btn btn-primary" id="log-btn">Log Call</button>
+                <button class="btn" id="defer-btn">Defer…</button>
+                <button class="btn" id="skip-btn">Skip →</button>
+                <a href="/" class="btn" style="margin-left:auto;">← Leads</a>
+            </div>
+        </div>
+
+        <!-- Defer date picker -->
+        <div id="defer-form" class="hidden" style="background:var(--bg-card);border:1px solid var(--border);padding:16px;margin-top:8px;">
+            <div style="font-size:0.6875rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px;">Defer to:</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input type="date" id="defer-date" style="flex:1;background:var(--bg-primary);border:1px solid var(--border);color:#fff;font-family:var(--font-mono);padding:8px;">
+                <button class="btn btn-primary" id="confirm-defer-btn">Confirm</button>
+                <button class="btn" id="cancel-defer-btn">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Previous interactions -->
+        <div style="margin-top:20px;">
+            <div style="font-size:0.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-secondary);border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:10px;">Previous Notes</div>
+            <div id="call-interaction-list"></div>
+        </div>
+    `;
+
+    // Wire up buttons
+    document.getElementById('edit-profile-btn').addEventListener('click', () => openPanel(c));
+
+    document.getElementById('log-btn').addEventListener('click', async () => {
+        const date = document.getElementById('i-date').value;
+        const type = document.getElementById('i-type').value;
+        const notes = document.getElementById('i-notes').value;
+        if (!date) { alert('Date required'); return; }
+        await fetch('/api/interactions', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ contact_id: c.id, date, type, notes })
+        });
+        showStatus('status', 'Interaction logged.', 'success');
+        loadNext();
+    });
+
+    document.getElementById('defer-btn').addEventListener('click', () => {
+        document.getElementById('defer-form').classList.toggle('hidden');
+        document.getElementById('defer-date').value = '';
+    });
+
+    document.getElementById('cancel-defer-btn').addEventListener('click', () => {
+        document.getElementById('defer-form').classList.add('hidden');
+    });
+
+    document.getElementById('confirm-defer-btn').addEventListener('click', async () => {
+        const newDate = document.getElementById('defer-date').value;
+        if (!newDate) { alert('Pick a date'); return; }
+        await fetch(`/api/call/${c.id}/defer`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ next_conversation: newDate })
+        });
+        showStatus('status', 'Deferred.', 'success');
+        loadNext();
+    });
+
+    document.getElementById('skip-btn').addEventListener('click', async () => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const d = tomorrow.toISOString().split('T')[0];
+        await fetch(`/api/call/${c.id}/defer`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ next_conversation: d })
+        });
+        loadNext();
+    });
+
+    // Load interaction history
+    loadCallInteractions(c.id);
+}
+
+async function loadCallInteractions(contactId) {
+    const res = await fetch(`/api/contacts/${contactId}/interactions`);
+    const interactions = await res.json();
+    const list = document.getElementById('call-interaction-list');
+    if (!list) return;
+    if (!interactions.length) {
+        list.innerHTML = '<div style="color:var(--text-secondary);font-size:0.75rem;">No previous interactions.</div>';
+        return;
+    }
+    list.innerHTML = interactions.map(i => `
+        <div class="interaction-item">
+            <div class="interaction-meta">
+                <span class="interaction-date">${esc(i.date)}</span>
+                <span class="interaction-type">${esc(i.type)}</span>
+            </div>
+            ${i.notes ? `<div class="interaction-notes">${esc(i.notes)}</div>` : ''}
+        </div>
+    `).join('');
+}
+
+// ── Edit profile panel ────────────────────────────────────────────────────
+
+function openPanel(c) {
+    document.getElementById('panel-title').textContent = `${c.first_name} ${c.last_name || ''}`.trim();
+    ['first_name','last_name','title','email','phone','mobile_phone',
+     'last_conversation','next_conversation','tags','description','company_name'].forEach(f => {
+        const el = document.getElementById('f-' + f);
+        if (el) el.value = c[f] || '';
+    });
+    document.getElementById('f-working_as').value = c.working_as || '';
+    document.getElementById('contact-panel').classList.add('open');
+}
+
+function closePanel() {
+    document.getElementById('contact-panel').classList.remove('open');
+}
+
+async function savePanel() {
+    if (!currentContact) return;
+    const data = {
+        first_name: document.getElementById('f-first_name').value,
+        last_name: document.getElementById('f-last_name').value,
+        title: document.getElementById('f-title').value,
+        email: document.getElementById('f-email').value,
+        phone: document.getElementById('f-phone').value,
+        mobile_phone: document.getElementById('f-mobile_phone').value,
+        company_name: document.getElementById('f-company_name').value,
+        working_as: document.getElementById('f-working_as').value,
+        tags: document.getElementById('f-tags').value,
+        last_conversation: document.getElementById('f-last_conversation').value,
+        next_conversation: document.getElementById('f-next_conversation').value,
+        description: document.getElementById('f-description').value,
+    };
+    const res = await fetch(`/api/contacts/${currentContact.id}`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+    });
+    if (res.ok) {
+        showStatus('status', 'Saved.', 'success');
+        closePanel();
+        loadNext();
+    } else {
+        showStatus('status', 'Save failed.', 'error');
+    }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+function renderTagPills(tags) {
+    if (!tags) return '';
+    return tags.split(',').filter(t=>t.trim()).map(t =>
+        `<span class="tag-pill">${esc(t.trim())}</span>`
+    ).join('');
+}
+
+function esc(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+init();
+</script>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Import — Hermes{% endblock %}
+
+{% block content %}
+<div class="settings-section">
+    <h3>Import Contacts</h3>
+    <p style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:12px;">
+        Imports from the bundled Mimiran CSV export. Existing contacts (matched by Mimiran ID) will be updated.
+    </p>
+    <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;">
+        File: <code style="color:var(--accent);">Mimiran Export - mimiran-contact-details-20240615 (1).csv</code>
+    </p>
+    <button class="btn btn-primary" id="import-btn">Run Import</button>
+</div>
+
+<div id="import-result" class="import-result hidden"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('import-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('import-btn');
+    btn.disabled = true;
+    btn.textContent = 'Importing…';
+    const res = await fetch('/api/import', { method: 'POST' });
+    const data = await res.json();
+    btn.disabled = false;
+    btn.textContent = 'Run Import';
+
+    const result = document.getElementById('import-result');
+    result.classList.remove('hidden');
+    if (data.error) {
+        result.innerHTML = `<div class="err">Error: ${esc(data.error)}</div>`;
+    } else {
+        let html = `<div class="ok">Imported: ${data.imported}</div>`;
+        if (data.skipped) html += `<div style="color:var(--text-secondary);">Skipped: ${data.skipped}</div>`;
+        if (data.errors && data.errors.length) {
+            html += `<div class="err" style="margin-top:8px;">Errors (${data.errors.length}):</div>`;
+            data.errors.forEach(e => { html += `<div class="err" style="font-size:0.75rem;">• ${esc(e)}</div>`; });
+        }
+        result.innerHTML = html;
+    }
+});
+
+function esc(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}
