@@ -1,11 +1,103 @@
 """
-Importer - Mimiran CSV import logic.
+Importer - Mimiran CSV import logic + paste-text parser.
 """
 
 import csv
+import re
 import sqlite3
 import config
 from daemons.contacts import get_db
+
+KNOWN_LABELS = {'phone', 'fax', 'email', 'website', 'address'}
+
+
+_ADDRESS_RE = re.compile(
+    r'^(.+),\s*(.+),\s*([A-Z]{2})\s+([\d-]+)(?:\s*\([^)]+\))?\s*(.*)$'
+)
+
+
+def _try_parse_address(line):
+    """Return address field dict if line matches address format, else None."""
+    m = _ADDRESS_RE.match(line)
+    if not m:
+        return None
+    return {
+        'billing_street': m.group(1).strip(),
+        'billing_city': m.group(2).strip(),
+        'billing_state': m.group(3).strip(),
+        'billing_postal_code': m.group(4).strip(),
+        'billing_country': m.group(5).strip(),
+    }
+
+
+def parse_paste_text(text):
+    """Parse raw pasted contact data (from Phil's external database) into a contact field dict.
+
+    Expected format (each on its own line):
+        Company Name
+        First Last
+        [Title]                             ← optional
+        Street, City, ST ZIP (County) Country
+        Phone
+        (405) 555-1234
+        Fax
+        Email
+        user@example.com
+        Website
+        https://example.com/
+    """
+    lines = [l.strip() for l in text.splitlines()]
+    lines = [l for l in lines if l]
+
+    data = {}
+    idx = 0
+
+    def is_label(s):
+        return s.lower() in KNOWN_LABELS
+
+    # Company name
+    if idx < len(lines) and not is_label(lines[idx]):
+        data['company_name'] = lines[idx]
+        idx += 1
+
+    # First + last name
+    if idx < len(lines) and not is_label(lines[idx]):
+        parts = lines[idx].split(' ', 1)
+        data['first_name'] = parts[0]
+        data['last_name'] = parts[1] if len(parts) > 1 else ''
+        idx += 1
+
+    # Title (optional) — only if this line does NOT look like an address
+    if idx < len(lines) and not is_label(lines[idx]):
+        if _try_parse_address(lines[idx]) is None:
+            data['title'] = lines[idx]
+            idx += 1
+
+    # Address (optional)
+    if idx < len(lines) and not is_label(lines[idx]):
+        addr = _try_parse_address(lines[idx])
+        if addr:
+            data.update(addr)
+        else:
+            data['billing_street'] = lines[idx]
+        idx += 1
+
+    # Label → value pairs
+    label_map = {'phone': 'phone', 'email': 'email', 'website': 'website'}
+    while idx < len(lines):
+        key = lines[idx].lower()
+        if key in label_map:
+            field = label_map[key]
+            idx += 1
+            if idx < len(lines) and not is_label(lines[idx]):
+                data[field] = lines[idx]
+                idx += 1
+            else:
+                data[field] = ''
+        else:
+            idx += 1
+
+    return data
 
 
 MIMIRAN_FIELD_MAP = {

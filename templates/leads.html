@@ -16,6 +16,24 @@
         <option value="all">All</option>
     </select>
     <button class="btn btn-primary" id="new-contact-btn">+ New</button>
+    <button class="btn" id="import-paste-btn">⬆ Import</button>
+</div>
+
+<!-- Paste Import Modal -->
+<div id="import-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;">
+    <div style="background:var(--bg-card);border:1px solid var(--border);padding:24px;width:520px;max-width:95vw;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <span style="font-size:0.875rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;">Import Contact</span>
+            <button id="import-modal-close" style="background:none;border:none;color:var(--text-secondary);font-size:1.2rem;cursor:pointer;line-height:1;">✕</button>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:10px;">Paste contact data from your database:</div>
+        <textarea id="import-paste-text" rows="10" style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font-mono);font-size:0.8rem;padding:10px;resize:vertical;" placeholder="McKee Utility Contractors LLC&#10;Jason Buoy&#10;General Contractor&#10;2319 W Main St, Prague, OK 74864 (Lincoln County) USA&#10;Phone&#10;(405) 567-3666&#10;Email&#10;jason@mckeeutility.com&#10;Website&#10;https://www.mckeeutility.com/"></textarea>
+        <div id="import-modal-msg" style="min-height:18px;font-size:0.75rem;margin-top:8px;"></div>
+        <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+            <button class="btn" id="import-modal-cancel">Cancel</button>
+            <button class="btn btn-primary" id="import-modal-submit">Import Contact</button>
+        </div>
+    </div>
 </div>
 
 <div class="tag-chips" id="tag-chips">
@@ -933,6 +951,48 @@ function esc(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 }
+
+// Paste Import Modal
+const importModal = document.getElementById('import-modal');
+const importPasteText = document.getElementById('import-paste-text');
+const importModalMsg = document.getElementById('import-modal-msg');
+
+function showImportModal() {
+    importPasteText.value = '';
+    importModalMsg.textContent = '';
+    importModal.style.display = 'flex';
+    importPasteText.focus();
+}
+function hideImportModal() {
+    importModal.style.display = 'none';
+}
+
+document.getElementById('import-paste-btn').addEventListener('click', showImportModal);
+document.getElementById('import-modal-close').addEventListener('click', hideImportModal);
+document.getElementById('import-modal-cancel').addEventListener('click', hideImportModal);
+importModal.addEventListener('click', e => { if (e.target === importModal) hideImportModal(); });
+
+document.getElementById('import-modal-submit').addEventListener('click', async () => {
+    const text = importPasteText.value.trim();
+    if (!text) { importModalMsg.textContent = 'Paste some contact data first.'; importModalMsg.style.color = 'var(--error)'; return; }
+    importModalMsg.textContent = 'Importing…';
+    importModalMsg.style.color = 'var(--text-secondary)';
+    try {
+        const res = await fetch('/api/contacts/paste-import', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text})
+        });
+        const data = await res.json();
+        if (!res.ok) { importModalMsg.textContent = data.error || 'Import failed.'; importModalMsg.style.color = 'var(--error)'; return; }
+        hideImportModal();
+        await loadContacts();
+        openPanel(data.id);
+    } catch (err) {
+        importModalMsg.textContent = 'Network error.';
+        importModalMsg.style.color = 'var(--error)';
+    }
+});
 
 init();
 </script>

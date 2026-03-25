@@ -23,7 +23,7 @@ from daemons.settings_daemon import (
     get_working_as_options, create_working_as, delete_working_as,
     get_all_sources, create_source, delete_source
 )
-from daemons.importer import import_csv
+from daemons.importer import import_csv, parse_paste_text
 from daemons.campaigns import (
     init_campaigns_schema,
     list_campaigns, create_campaign, update_campaign_notes, delete_campaign,
@@ -573,6 +573,20 @@ def api_import():
     result = import_csv(filepath)
     logger.info(f"Import complete: {result}")
     return jsonify(result)
+
+
+@app.route("/api/contacts/paste-import", methods=["POST"])
+@login_required
+def paste_import():
+    text = (request.json or {}).get("text", "")
+    if not text.strip():
+        return jsonify({"error": "No text provided"}), 400
+    data = parse_paste_text(text)
+    company_name = data.pop("company_name", "")
+    if company_name:
+        data["company_id"] = get_or_create_company(company_name)
+    contact = create_contact(data)
+    return jsonify(contact)
 
 
 if __name__ == "__main__":
