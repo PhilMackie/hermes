@@ -19,14 +19,15 @@ from daemons.contacts import (
 from daemons.companies import list_companies, get_or_create_company
 from daemons.interactions import list_interactions, log_interaction, delete_interaction
 from daemons.settings_daemon import (
-    get_all_tags, create_tag, delete_tag,
+    get_all_tags, create_tag, delete_tag, rename_tag,
     get_working_as_options, create_working_as, delete_working_as,
-    get_all_sources, create_source, delete_source
+    get_all_sources, create_source, delete_source, rename_source
 )
 from daemons.importer import import_csv, parse_paste_text
 from daemons.campaigns import (
     init_campaigns_schema,
     list_campaigns, create_campaign, update_campaign_notes, delete_campaign,
+    archive_campaign, unarchive_campaign,
     add_step, delete_step, reorder_steps,
     get_board, add_contact_to_campaign, remove_contact_from_campaign,
     move_contact_to_step, reorder_contacts_in_step,
@@ -197,7 +198,9 @@ def api_contacts_list():
     if archived not in ("active", "archived", "all"):
         archived = "active"
     page = int(request.args.get("page", 1))
-    return jsonify(list_contacts(q=q or None, tags=tags, working_as=working_as or None, source=source or None, archived=archived, page=page))
+    sort_by = request.args.get("sort_by", "").strip() or None
+    sort_dir = request.args.get("sort_dir", "asc").strip()
+    return jsonify(list_contacts(q=q or None, tags=tags, working_as=working_as or None, source=source or None, archived=archived, page=page, sort_by=sort_by, sort_dir=sort_dir))
 
 
 @app.route("/api/contacts", methods=["POST"])
@@ -389,6 +392,16 @@ def api_tags_delete(tag_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/tags/<int:tag_id>", methods=["POST"])
+@login_required
+def api_tags_rename(tag_id):
+    data = request.get_json() or {}
+    result = rename_tag(tag_id, data.get("name", ""))
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
 @app.route("/api/working_as", methods=["POST"])
 @login_required
 def api_working_as_create():
@@ -423,12 +436,23 @@ def api_sources_delete(source_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/sources/<int:source_id>", methods=["POST"])
+@login_required
+def api_sources_rename(source_id):
+    data = request.get_json() or {}
+    result = rename_source(source_id, data.get("name", ""))
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
 # ============ Campaigns API ============
 
 @app.route("/api/campaigns", methods=["GET"])
 @login_required
 def api_campaigns_list():
-    return jsonify(list_campaigns())
+    include_archived = request.args.get("include_archived", "0") == "1"
+    return jsonify(list_campaigns(include_archived=include_archived))
 
 
 @app.route("/api/campaigns", methods=["POST"])
@@ -453,6 +477,14 @@ def api_campaign_notes(campaign_id):
 def api_campaign_delete(campaign_id):
     delete_campaign(campaign_id)
     return jsonify({"ok": True})
+
+
+@app.route("/api/campaigns/<int:campaign_id>/archive", methods=["POST"])
+@login_required
+def api_campaign_archive(campaign_id):
+    data = request.get_json() or {}
+    fn = archive_campaign if data.get("archived", True) else unarchive_campaign
+    return jsonify(fn(campaign_id))
 
 
 @app.route("/api/campaigns/<int:campaign_id>/steps", methods=["POST"])

@@ -71,12 +71,13 @@
             <tr>
                 <th style="width:24px;"><input type="checkbox" class="row-check" id="check-all" title="Select all"></th>
                 <th style="width:28px;"></th>
-                <th>Name</th>
-                <th>Company</th>
-                <th>Tags</th>
-                <th>Next Follow-up</th>
-                <th>Email</th>
-                <th>Working As</th>
+                <th class="sortable-th" data-col="first_name">Name <span class="sort-indicator"></span></th>
+                <th class="sortable-th" data-col="company_name">Company <span class="sort-indicator"></span></th>
+                <th class="sortable-th" data-col="tags">Tags <span class="sort-indicator"></span></th>
+                <th class="sortable-th" data-col="next_conversation">Next Follow-up <span class="sort-indicator"></span></th>
+                <th class="sortable-th" data-col="email">Email <span class="sort-indicator"></span></th>
+                <th class="sortable-th" data-col="working_as">Working As <span class="sort-indicator"></span></th>
+                <th class="sortable-th" data-col="created_at">Created <span class="sort-indicator"></span></th>
             </tr>
         </thead>
         <tbody id="contacts-tbody"></tbody>
@@ -242,6 +243,10 @@
 
     <div class="panel-actions">
         <button class="btn btn-primary" id="save-btn">Save</button>
+        <button class="btn" id="save-next-btn">Save &amp; Next</button>
+        <button class="btn" id="save-close-btn">Save &amp; Close</button>
+        <span style="flex:1;"></span>
+        <span id="panel-timestamps" style="font-size:0.6875rem;color:var(--text-secondary);align-self:center;text-align:right;line-height:1.5;"></span>
         <button class="btn btn-muted" id="archive-btn">Archive</button>
         <button class="btn btn-danger" id="delete-btn">Delete</button>
     </div>
@@ -257,6 +262,8 @@ let currentWorkingAs = '';
 let currentSource = '';
 let currentArchived = 'active';
 let currentContactId = null;
+let currentSortBy = '';
+let currentSortDir = 'asc';
 let allTags = [];
 let workingAsOptions = [];
 let allSources = [];
@@ -275,23 +282,53 @@ function addDays(dateStr, n) {
 function stickyGet(key) { return localStorage.getItem('hermes_sticky_' + key) || ''; }
 function stickySet(key, val) { if (val) localStorage.setItem('hermes_sticky_' + key, val); }
 
+// Filter persistence
+function saveFilters() {
+    localStorage.setItem('hermes_f_working_as', currentWorkingAs);
+    localStorage.setItem('hermes_f_source', currentSource);
+    localStorage.setItem('hermes_f_archived', currentArchived);
+    localStorage.setItem('hermes_f_tags', JSON.stringify(Array.from(currentTags)));
+    localStorage.setItem('hermes_f_sort_by', currentSortBy);
+    localStorage.setItem('hermes_f_sort_dir', currentSortDir);
+}
+
+function restoreFilters() {
+    currentWorkingAs = localStorage.getItem('hermes_f_working_as') || '';
+    currentSource    = localStorage.getItem('hermes_f_source') || '';
+    currentSortBy    = localStorage.getItem('hermes_f_sort_by') || '';
+    currentSortDir   = localStorage.getItem('hermes_f_sort_dir') || 'asc';
+    const savedTags  = localStorage.getItem('hermes_f_tags');
+    if (savedTags) { try { currentTags = new Set(JSON.parse(savedTags)); } catch(e) {} }
+    const savedArchived = localStorage.getItem('hermes_f_archived');
+    if (savedArchived) currentArchived = savedArchived;
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────
 
 async function init() {
+    restoreFilters();
+
+    const archivedSel = document.getElementById('filter-archived');
     if (localStorage.getItem('hermes-hide-archived') === '1') {
         currentArchived = 'active';
-        const sel = document.getElementById('filter-archived');
-        sel.value = 'active';
-        sel.style.display = 'none';
+        archivedSel.value = 'active';
+        archivedSel.style.display = 'none';
+    } else {
+        archivedSel.value = currentArchived;
     }
+
     await loadSettings();
+    updateSortIndicators();
     await loadContacts();
     setupSearch();
     setupSortable();
+    setupSortHeaders();
     setupBulk();
-    document.getElementById('filter-archived').addEventListener('change', function() {
+
+    archivedSel.addEventListener('change', function() {
         currentArchived = this.value;
         currentPage = 1;
+        saveFilters();
         loadContacts();
     });
 }
@@ -324,6 +361,7 @@ function renderTagChips() {
     allBtn.addEventListener('click', () => {
         currentTags.clear();
         currentPage = 1;
+        saveFilters();
         renderTagChips();
         loadContacts();
     });
@@ -338,6 +376,7 @@ function renderTagChips() {
             if (currentTags.has(t.name)) currentTags.delete(t.name);
             else currentTags.add(t.name);
             currentPage = 1;
+            saveFilters();
             renderTagChips();
             loadContacts();
         });
@@ -371,6 +410,7 @@ function renderWorkingAsFilter() {
     sel.addEventListener('change', () => {
         currentWorkingAs = sel.value;
         currentPage = 1;
+        saveFilters();
         loadContacts();
     });
 }
@@ -388,6 +428,7 @@ function renderSourceFilter() {
     sel.addEventListener('change', () => {
         currentSource = sel.value;
         currentPage = 1;
+        saveFilters();
         loadContacts();
     });
 }
@@ -466,6 +507,7 @@ async function loadContacts() {
     if (currentWorkingAs) params.set('working_as', currentWorkingAs);
     if (currentSource) params.set('source', currentSource);
     if (currentArchived !== 'active') params.set('archived', currentArchived);
+    if (currentSortBy) { params.set('sort_by', currentSortBy); params.set('sort_dir', currentSortDir); }
     const res = await fetch('/api/contacts?' + params);
     const data = await res.json();
     renderTable(data.contacts);
@@ -483,12 +525,13 @@ function renderTable(contacts) {
         tr.innerHTML = `
             <td style="padding:10px 6px;"><input type="checkbox" class="row-check contact-check" data-id="${c.id}" ${checked ? 'checked' : ''}></td>
             <td><span class="drag-handle" title="Drag to reorder">⠿</span></td>
-            <td>${esc(c.first_name)} ${esc(c.last_name || '')}</td>
+            <td>${esc(contactDisplayName(c))}</td>
             <td>${esc(c.company_name || '')}</td>
             <td>${renderTagPills(c.tags)}</td>
             <td style="color:${c.next_conversation ? 'var(--accent)' : 'var(--text-secondary)'}">${esc(c.next_conversation || '—')}</td>
             <td>${esc(c.email || '')}</td>
             <td style="color:var(--text-secondary)">${esc(c.working_as || '')}</td>
+            <td style="color:var(--text-secondary);font-size:0.75rem;">${esc((c.created_at || '').slice(0, 10))}</td>
         `;
         // Click row to open panel (not on checkbox or drag handle)
         tr.addEventListener('click', (e) => {
@@ -556,6 +599,38 @@ function setupSearch() {
             currentQ = input.value.trim();
             currentPage = 1;
             loadContacts();
+        }
+    });
+}
+
+function setupSortHeaders() {
+    document.querySelectorAll('.sortable-th').forEach(th => {
+        th.style.cursor = 'pointer';
+        th.style.userSelect = 'none';
+        th.addEventListener('click', () => {
+            const col = th.dataset.col;
+            if (currentSortBy === col) {
+                currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortBy = col;
+                currentSortDir = 'asc';
+            }
+            currentPage = 1;
+            saveFilters();
+            updateSortIndicators();
+            loadContacts();
+        });
+    });
+}
+
+function updateSortIndicators() {
+    document.querySelectorAll('.sortable-th').forEach(th => {
+        const ind = th.querySelector('.sort-indicator');
+        if (th.dataset.col === currentSortBy) {
+            ind.textContent = currentSortDir === 'asc' ? ' ▲' : ' ▼';
+            ind.style.color = 'var(--accent)';
+        } else {
+            ind.textContent = '';
         }
     });
 }
@@ -694,8 +769,13 @@ async function openPanel(contactId) {
     document.getElementById('i-date').value = today;
 }
 
+function contactDisplayName(c) {
+    const name = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+    return name || c.company_name || '(no name)';
+}
+
 function fillPanel(c) {
-    document.getElementById('panel-title').textContent = `${c.first_name} ${c.last_name || ''}`.trim();
+    document.getElementById('panel-title').textContent = contactDisplayName(c);
     ['first_name','last_name','title','email','phone','mobile_phone','calendar_link',
      'last_conversation','next_conversation','linkedin_profile','description',
      'company_name','website'].forEach(f => {
@@ -720,6 +800,12 @@ function fillPanel(c) {
     const archiveBtn = document.getElementById('archive-btn');
     archiveBtn.textContent = c.is_archived ? 'Unarchive' : 'Archive';
     archiveBtn.dataset.archived = c.is_archived ? '1' : '0';
+    const ts = document.getElementById('panel-timestamps');
+    if (ts) {
+        const created = (c.created_at || '').replace('T', ' ').slice(0, 16);
+        const updated = (c.updated_at || '').replace('T', ' ').slice(0, 16);
+        ts.innerHTML = `created: ${esc(created)}<br>updated: ${esc(updated)}`;
+    }
 }
 
 function closePanel() {
@@ -778,11 +864,9 @@ document.querySelectorAll('.followup-btn').forEach(btn => {
     });
 });
 
-// Panel Save
-document.getElementById('save-btn').addEventListener('click', async () => {
-    if (!currentContactId) return;
+async function saveContact() {
+    if (!currentContactId) return false;
     const data = collectPanelData();
-    // Save sticky values
     stickySet('working_as', data.working_as);
     stickySet('source', data.source);
     const res = await fetch(`/api/contacts/${currentContactId}`, {
@@ -791,14 +875,38 @@ document.getElementById('save-btn').addEventListener('click', async () => {
         body: JSON.stringify(data)
     });
     if (res.ok) {
-        showStatus('status', 'Saved.', 'success');
         loadContacts();
         const c = await res.json();
-        document.getElementById('panel-title').textContent =
-            `${c.first_name} ${c.last_name || ''}`.trim();
+        document.getElementById('panel-title').textContent = contactDisplayName(c);
+        return true;
     } else {
         showStatus('status', 'Save failed.', 'error');
+        return false;
     }
+}
+
+// Panel Save
+document.getElementById('save-btn').addEventListener('click', async () => {
+    if (await saveContact()) showStatus('status', 'Saved.', 'success');
+});
+
+// Save & Next
+document.getElementById('save-next-btn').addEventListener('click', async () => {
+    if (!currentContactId) return;
+    const savedId = currentContactId;
+    if (!(await saveContact())) return;
+    const rows = Array.from(document.querySelectorAll('#contacts-tbody tr[data-id]'));
+    const idx = rows.findIndex(r => parseInt(r.dataset.id) === savedId);
+    if (idx !== -1 && idx + 1 < rows.length) {
+        openPanel(parseInt(rows[idx + 1].dataset.id));
+    } else {
+        showStatus('status', 'Saved. No next contact.', 'success');
+    }
+});
+
+// Save & Close
+document.getElementById('save-close-btn').addEventListener('click', async () => {
+    if (await saveContact()) closePanel();
 });
 
 // Panel Archive / Unarchive
@@ -854,7 +962,7 @@ document.getElementById('new-contact-btn').addEventListener('click', async () =>
     const res = await fetch('/api/contacts', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ first_name: 'New', last_name: 'Contact' })
+        body: JSON.stringify({ first_name: '', last_name: '' })
     });
     const c = await res.json();
     await loadContacts();

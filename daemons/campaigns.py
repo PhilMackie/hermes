@@ -31,18 +31,43 @@ def init_campaigns_schema():
         );
     """)
     conn.commit()
+
+    # Migration: add is_archived if missing
+    try:
+        conn.execute("ALTER TABLE campaigns ADD COLUMN is_archived INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass
+
     conn.close()
 
 
-def list_campaigns():
+def list_campaigns(include_archived=False):
     conn = get_db()
+    where = "" if include_archived else "WHERE c.is_archived = 0"
     rows = conn.execute(
-        """SELECT c.id, c.name, c.notes,
+        f"""SELECT c.id, c.name, c.notes, c.is_archived,
                   (SELECT COUNT(*) FROM campaign_steps cs WHERE cs.campaign_id = c.id) AS step_count
-           FROM campaigns c ORDER BY c.name ASC"""
+           FROM campaigns c {where} ORDER BY c.name ASC"""
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def archive_campaign(campaign_id):
+    conn = get_db()
+    conn.execute("UPDATE campaigns SET is_archived=1 WHERE id=?", (campaign_id,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
+
+
+def unarchive_campaign(campaign_id):
+    conn = get_db()
+    conn.execute("UPDATE campaigns SET is_archived=0 WHERE id=?", (campaign_id,))
+    conn.commit()
+    conn.close()
+    return {"ok": True}
 
 
 def create_campaign(name):

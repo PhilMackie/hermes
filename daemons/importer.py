@@ -60,8 +60,8 @@ def parse_paste_text(text):
         data['company_name'] = lines[idx]
         idx += 1
 
-    # First + last name
-    if idx < len(lines) and not is_label(lines[idx]):
+    # First + last name — skip if line looks like an address (no name in source)
+    if idx < len(lines) and not is_label(lines[idx]) and _try_parse_address(lines[idx]) is None:
         parts = lines[idx].split(' ', 1)
         data['first_name'] = parts[0]
         data['last_name'] = parts[1] if len(parts) > 1 else ''

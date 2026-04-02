@@ -195,6 +195,7 @@ async function init() {
 
     document.getElementById('campaign-sel').addEventListener('change', function() {
         currentCampaignId = this.value ? parseInt(this.value) : null;
+        localStorage.setItem('hermes_campaign_id', currentCampaignId || '');
         if (currentCampaignId) {
             showControls();
             loadBoard();
@@ -256,7 +257,7 @@ async function loadCampaigns(selectId) {
     const campaigns = await res.json();
     allCampaignsList = campaigns;
     const sel = document.getElementById('campaign-sel');
-    const prev = selectId || currentCampaignId || parseInt(sel.value) || null;
+    const prev = selectId || currentCampaignId || parseInt(sel.value) || parseInt(localStorage.getItem('hermes_campaign_id')) || null;
     sel.innerHTML = '<option value="">— select campaign —</option>';
     campaigns.forEach(c => {
         const opt = document.createElement('option');

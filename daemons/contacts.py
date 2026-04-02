@@ -98,7 +98,17 @@ def init_schema():
     conn.close()
 
 
-def list_contacts(q=None, tags=None, working_as=None, source=None, archived='active', page=1, per_page=50):
+SORTABLE_COLS = {
+    'first_name': 'c.first_name',
+    'company_name': 'co.name',
+    'tags': 'c.tags',
+    'next_conversation': 'c.next_conversation',
+    'email': 'c.email',
+    'working_as': 'c.working_as',
+    'created_at': 'c.created_at',
+}
+
+def list_contacts(q=None, tags=None, working_as=None, source=None, archived='active', page=1, per_page=50, sort_by=None, sort_dir='asc'):
     """tags: list of tag names (OR logic), or None for no filter.
     archived: 'active' (default), 'archived', or 'all'."""
     conn = get_db()
@@ -141,12 +151,17 @@ def list_contacts(q=None, tags=None, working_as=None, source=None, archived='act
     total = count_row[0]
 
     offset = (page - 1) * per_page
+    if sort_by and sort_by in SORTABLE_COLS:
+        direction = 'DESC' if sort_dir == 'desc' else 'ASC'
+        order_clause = f"ORDER BY {SORTABLE_COLS[sort_by]} {direction} NULLS LAST, c.id ASC"
+    else:
+        order_clause = "ORDER BY c.sort_order ASC, c.id ASC"
     rows = cur.execute(
         f"""SELECT c.*, co.name as company_name
             FROM contacts c
             LEFT JOIN companies co ON c.company_id = co.id
             {where}
-            ORDER BY c.sort_order ASC, c.id ASC
+            {order_clause}
             LIMIT ? OFFSET ?""",
         params + [per_page, offset]
     ).fetchall()

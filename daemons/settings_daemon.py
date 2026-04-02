@@ -36,6 +36,21 @@ def delete_tag(tag_id):
     conn.close()
 
 
+def rename_tag(tag_id, name):
+    name = name.strip()
+    if not name:
+        return {"error": "name required"}
+    conn = get_db()
+    try:
+        conn.execute("UPDATE tags SET name=? WHERE id=?", (name, tag_id))
+        conn.commit()
+        conn.close()
+        return {"id": tag_id, "name": name}
+    except Exception:
+        conn.close()
+        return {"error": "Tag name already exists"}
+
+
 def get_working_as_options():
     conn = get_db()
     rows = conn.execute("SELECT * FROM working_as_options ORDER BY name ASC").fetchall()
@@ -96,3 +111,18 @@ def delete_source(source_id):
     conn.execute("DELETE FROM sources WHERE id=?", (source_id,))
     conn.commit()
     conn.close()
+
+
+def rename_source(source_id, name):
+    name = name.strip()
+    if not name:
+        return {"error": "name required"}
+    conn = get_db()
+    try:
+        conn.execute("UPDATE sources SET name=? WHERE id=?", (name, source_id))
+        conn.commit()
+        conn.close()
+        return {"id": source_id, "name": name}
+    except Exception:
+        conn.close()
+        return {"error": "Source name already exists"}
