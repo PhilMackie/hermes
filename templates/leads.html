@@ -144,21 +144,31 @@
                 <span class="panel-label">Phone</span>
                 <input class="panel-field" id="f-phone" type="tel">
             </div>
-            <div class="panel-field-wrap">
-                <span class="panel-label">Mobile</span>
-                <input class="panel-field" id="f-mobile_phone" type="tel">
-            </div>
-            <div class="panel-field-wrap">
-                <span class="panel-label">LinkedIn</span>
-                <input class="panel-field" id="f-linkedin_profile" type="text">
-            </div>
-            <div class="panel-field-wrap">
-                <span class="panel-label">Website</span>
-                <input class="panel-field" id="f-website" type="text">
-            </div>
-            <div class="panel-field-wrap">
-                <span class="panel-label">Calendar Link</span>
-                <input class="panel-field" id="f-calendar_link" type="text">
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <label style="display:flex;align-items:center;gap:5px;font-size:0.6875rem;color:var(--text-secondary);cursor:pointer;font-family:var(--font-mono);">
+                <input type="checkbox" id="hide-adv-contact-cb" style="accent-color:var(--accent);">
+                Hide Adv. Contact Info
+            </label>
+        </div>
+        <div id="adv-contact-section">
+            <div class="panel-grid">
+                <div class="panel-field-wrap">
+                    <span class="panel-label">Mobile</span>
+                    <input class="panel-field" id="f-mobile_phone" type="tel">
+                </div>
+                <div class="panel-field-wrap">
+                    <span class="panel-label">LinkedIn</span>
+                    <input class="panel-field" id="f-linkedin_profile" type="text">
+                </div>
+                <div class="panel-field-wrap">
+                    <span class="panel-label">Website</span>
+                    <input class="panel-field" id="f-website" type="text">
+                </div>
+                <div class="panel-field-wrap">
+                    <span class="panel-label">Calendar Link</span>
+                    <input class="panel-field" id="f-calendar_link" type="text">
+                </div>
             </div>
         </div>
 
@@ -1145,6 +1155,20 @@ function esc(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 }
+
+// Adv. Contact Info hide toggle
+(function() {
+    const cb = document.getElementById('hide-adv-contact-cb');
+    const sec = document.getElementById('adv-contact-section');
+    const hidden = localStorage.getItem('hermes_hide_adv_contact') === '1';
+    cb.checked = hidden;
+    sec.style.display = hidden ? 'none' : '';
+    cb.addEventListener('change', () => {
+        const hide = cb.checked;
+        sec.style.display = hide ? 'none' : '';
+        localStorage.setItem('hermes_hide_adv_contact', hide ? '1' : '0');
+    });
+})();
 
 // Address hide toggle
 (function() {
