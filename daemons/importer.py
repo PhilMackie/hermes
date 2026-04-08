@@ -142,6 +142,21 @@ def parse_date(val):
     return val
 
 
+def _ensure_tag(conn, name):
+    name = name.strip()
+    if name:
+        conn.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", (name,))
+
+def _ensure_source(conn, name):
+    name = name.strip()
+    if name:
+        conn.execute("INSERT OR IGNORE INTO sources (name) VALUES (?)", (name,))
+
+def _ensure_working_as(conn, name):
+    name = name.strip()
+    if name:
+        conn.execute("INSERT OR IGNORE INTO working_as_options (name) VALUES (?)", (name,))
+
 def get_or_create_company_inline(conn, name):
     """Get or create company using existing connection."""
     if not name:
@@ -260,3 +275,110 @@ def import_csv(filepath):
     conn.close()
 
     return {"imported": imported, "skipped": skipped, "errors": errors}
+
+
+def import_enriched_csv(filepath):
+    """Import/update contacts from a Hermes-format enriched CSV.
+
+    Matches rows by the `id` column (Hermes contact ID).
+    - If the contact exists: updates all fields.
+    - If the contact does not exist: creates it (preserving the original ID).
+    """
+    updated = 0
+    created = 0
+    errors = []
+
+    with open(filepath, newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+
+    conn = sqlite3.connect(config.DB_PATH)
+    conn.row_factory = sqlite3.Row
+
+    for i, row in enumerate(rows):
+        try:
+            contact_id = row.get("id", "").strip()
+            first_name = row.get("first_name", "").strip()
+            if not first_name:
+                continue
+
+            company_name = row.get("company_name", "").strip()
+            company_id = None
+            if company_name:
+                company_id = get_or_create_company_inline(conn, company_name)
+
+            def v(key, default=""):
+                return row.get(key, default).strip() if row.get(key) else default
+
+            # Auto-create tags, source, working_as if new
+            for tag in v("tags").split(","):
+                _ensure_tag(conn, tag)
+            _ensure_source(conn, v("source"))
+            _ensure_working_as(conn, v("working_as"))
+
+            ideal_client = 1 if v("ideal_client").lower() in ("1", "true", "yes") else 0
+            ideal_partner = 1 if v("ideal_partner").lower() in ("1", "true", "yes") else 0
+            rating_val = v("rating") or None
+            review_count_val = v("review_count") or None
+
+            params = (
+                first_name, v("last_name"), v("title"),
+                v("email"), v("phone"), v("mobile_phone"),
+                company_id, v("tags"), v("working_as"), v("linkedin_profile"),
+                v("calendar_link"), v("source_url"), v("referring_contact"),
+                ideal_client, ideal_partner, v("description"),
+                v("billing_street"), v("billing_city"), v("billing_state"),
+                v("billing_postal_code"), v("billing_country"),
+                v("last_conversation") or None, v("next_conversation") or None,
+                v("website"),
+                v("maps_url"), v("status"), v("types"),
+                rating_val, review_count_val, v("place_id"),
+            )
+
+            existing = conn.execute(
+                "SELECT id FROM contacts WHERE id=?", (contact_id,)
+            ).fetchone() if contact_id else None
+
+            if existing:
+                conn.execute(
+                    """UPDATE contacts SET
+                       first_name=?, last_name=?, title=?, email=?, phone=?, mobile_phone=?,
+                       company_id=?, tags=?, working_as=?, linkedin_profile=?,
+                       calendar_link=?, source_url=?, referring_contact=?,
+                       ideal_client=?, ideal_partner=?, description=?,
+                       billing_street=?, billing_city=?, billing_state=?,
+                       billing_postal_code=?, billing_country=?,
+                       last_conversation=?, next_conversation=?, website=?,
+                       maps_url=?, status=?, types=?, rating=?, review_count=?, place_id=?,
+                       updated_at=datetime('now')
+                       WHERE id=?""",
+                    params + (contact_id,)
+                )
+                updated += 1
+            else:
+                # Insert preserving original ID if provided
+                id_col = "id, " if contact_id else ""
+                id_ph  = "?, "  if contact_id else ""
+                id_val = (int(contact_id),) if contact_id else ()
+                conn.execute(
+                    f"""INSERT INTO contacts
+                       ({id_col}first_name, last_name, title, email, phone, mobile_phone,
+                        company_id, tags, working_as, linkedin_profile,
+                        calendar_link, source_url, referring_contact,
+                        ideal_client, ideal_partner, description,
+                        billing_street, billing_city, billing_state,
+                        billing_postal_code, billing_country,
+                        last_conversation, next_conversation, website,
+                        maps_url, status, types, rating, review_count, place_id)
+                       VALUES ({id_ph}?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    id_val + params
+                )
+                created += 1
+
+        except Exception as e:
+            errors.append(f"Row {i+2}: {e}")
+
+    conn.commit()
+    conn.close()
+
+    return {"updated": updated, "created": created, "errors": errors}

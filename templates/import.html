@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="settings-section">
-    <h3>Import Contacts</h3>
+    <h3>Import Contacts (Mimiran)</h3>
     <p style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:12px;">
         Imports from the bundled Mimiran CSV export. Existing contacts (matched by Mimiran ID) will be updated.
     </p>
@@ -11,13 +11,32 @@
         File: <code style="color:var(--accent);">Mimiran Export - mimiran-contact-details-20240615 (1).csv</code>
     </p>
     <button class="btn btn-primary" id="import-btn">Run Import</button>
+    <div id="import-result" class="import-result hidden" style="margin-top:12px;"></div>
 </div>
 
-<div id="import-result" class="import-result hidden"></div>
+<div class="settings-section" style="margin-top:24px;">
+    <h3>Import Enriched CSV (Google Maps data)</h3>
+    <p style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:4px;">
+        Upload a CSV exported from gridVectr with Google Maps enrichment. Updates existing contacts by ID.
+    </p>
+    <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:16px;">
+        Fields updated: <code style="color:var(--accent);">maps_url, status, types, rating, review_count, place_id</code> (plus all standard fields).
+    </p>
+
+    <div id="enriched-drop-zone" style="border:2px dashed var(--border);padding:32px;text-align:center;cursor:pointer;transition:border-color 0.15s;margin-bottom:12px;">
+        <div style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:8px;">Drop CSV here or click to browse</div>
+        <div id="enriched-filename" style="font-size:0.75rem;color:var(--accent);min-height:1.2em;"></div>
+        <input type="file" id="enriched-file" accept=".csv" style="display:none;">
+    </div>
+
+    <button class="btn btn-primary" id="enriched-import-btn" disabled>Upload &amp; Import</button>
+    <div id="enriched-result" class="import-result hidden" style="margin-top:12px;"></div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+// ── Mimiran import ────────────────────────────────────────────────────────────
 document.getElementById('import-btn').addEventListener('click', async () => {
     const btn = document.getElementById('import-btn');
     btn.disabled = true;
@@ -26,21 +45,76 @@ document.getElementById('import-btn').addEventListener('click', async () => {
     const data = await res.json();
     btn.disabled = false;
     btn.textContent = 'Run Import';
-
-    const result = document.getElementById('import-result');
-    result.classList.remove('hidden');
-    if (data.error) {
-        result.innerHTML = `<div class="err">Error: ${esc(data.error)}</div>`;
-    } else {
-        let html = `<div class="ok">Imported: ${data.imported}</div>`;
-        if (data.skipped) html += `<div style="color:var(--text-secondary);">Skipped: ${data.skipped}</div>`;
-        if (data.errors && data.errors.length) {
-            html += `<div class="err" style="margin-top:8px;">Errors (${data.errors.length}):</div>`;
-            data.errors.forEach(e => { html += `<div class="err" style="font-size:0.75rem;">• ${esc(e)}</div>`; });
-        }
-        result.innerHTML = html;
-    }
+    showResult('import-result', data, 'imported');
 });
+
+// ── Enriched CSV upload ───────────────────────────────────────────────────────
+const dropZone = document.getElementById('enriched-drop-zone');
+const fileInput = document.getElementById('enriched-file');
+const fileNameEl = document.getElementById('enriched-filename');
+const uploadBtn = document.getElementById('enriched-import-btn');
+
+dropZone.addEventListener('click', () => fileInput.click());
+
+dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'var(--accent)';
+});
+dropZone.addEventListener('dragleave', () => {
+    dropZone.style.borderColor = 'var(--border)';
+});
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'var(--border)';
+    const file = e.dataTransfer.files[0];
+    if (file) setFile(file);
+});
+
+fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+});
+
+function setFile(file) {
+    fileInput._selectedFile = file;
+    fileNameEl.textContent = file.name;
+    uploadBtn.disabled = false;
+}
+
+uploadBtn.addEventListener('click', async () => {
+    const file = fileInput._selectedFile || fileInput.files[0];
+    if (!file) return;
+
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Uploading…';
+
+    const form = new FormData();
+    form.append('file', file);
+
+    const res = await fetch('/api/import/enriched', { method: 'POST', body: form });
+    const data = await res.json();
+
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = 'Upload & Import';
+    showResult('enriched-result', data, 'updated');
+});
+
+// ── Shared result renderer ────────────────────────────────────────────────────
+function showResult(elId, data, countKey) {
+    const el = document.getElementById(elId);
+    el.classList.remove('hidden');
+    if (data.error) {
+        el.innerHTML = `<div class="err">Error: ${esc(data.error)}</div>`;
+        return;
+    }
+    let html = `<div class="ok">${countKey === 'updated' ? 'Updated' : 'Imported'}: ${data[countKey]}</div>`;
+    if (data.created) html += `<div class="ok">Created: ${data.created}</div>`;
+    if (data.skipped) html += `<div style="color:var(--text-secondary);">Skipped: ${data.skipped}</div>`;
+    if (data.errors && data.errors.length) {
+        html += `<div class="err" style="margin-top:8px;">Errors (${data.errors.length}):</div>`;
+        data.errors.forEach(e => { html += `<div class="err" style="font-size:0.75rem;">• ${esc(e)}</div>`; });
+    }
+    el.innerHTML = html;
+}
 
 function esc(str) {
     if (!str) return '';

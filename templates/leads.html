@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Leads — Hermes{% endblock %}
+{% block head %}<style>.container { max-width: none; } #contact-panel { width: min(75vw, 1200px); }</style>{% endblock %}
 
 {% block content %}
 <div class="leads-toolbar">
@@ -78,6 +79,7 @@
                 <th class="sortable-th" data-col="email">Email <span class="sort-indicator"></span></th>
                 <th class="sortable-th" data-col="working_as">Working As <span class="sort-indicator"></span></th>
                 <th class="sortable-th" data-col="created_at">Created <span class="sort-indicator"></span></th>
+                <th class="sortable-th" data-col="updated_at">Updated <span class="sort-indicator"></span></th>
             </tr>
         </thead>
         <tbody id="contacts-tbody"></tbody>
@@ -160,6 +162,39 @@
             </div>
         </div>
 
+        <!-- Row 2b: Address -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <span class="panel-section-label" style="margin:0;">Address</span>
+            <label style="display:flex;align-items:center;gap:5px;font-size:0.6875rem;color:var(--text-secondary);cursor:pointer;font-family:var(--font-mono);">
+                <input type="checkbox" id="hide-address-cb" style="accent-color:var(--accent);">
+                Hide
+            </label>
+        </div>
+        <div id="address-section">
+            <div class="panel-grid">
+                <div class="panel-field-wrap span2">
+                    <span class="panel-label">Street</span>
+                    <input class="panel-field" id="f-billing_street" type="text" placeholder="123 Main St">
+                </div>
+                <div class="panel-field-wrap">
+                    <span class="panel-label">City</span>
+                    <input class="panel-field" id="f-billing_city" type="text">
+                </div>
+                <div class="panel-field-wrap">
+                    <span class="panel-label">State</span>
+                    <input class="panel-field" id="f-billing_state" type="text">
+                </div>
+                <div class="panel-field-wrap">
+                    <span class="panel-label">Zip</span>
+                    <input class="panel-field" id="f-billing_postal_code" type="text">
+                </div>
+                <div class="panel-field-wrap">
+                    <span class="panel-label">Country</span>
+                    <input class="panel-field" id="f-billing_country" type="text">
+                </div>
+            </div>
+        </div>
+
         <!-- Row 3: dates + flags -->
         <div class="panel-grid">
             <div class="panel-field-wrap">
@@ -196,6 +231,43 @@
         <div class="panel-field-wrap" style="margin-bottom:14px;">
             <span class="panel-label">Description / Notes</span>
             <textarea class="panel-field" id="f-description" rows="3"></textarea>
+        </div>
+
+        <!-- Google Maps -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <span class="panel-section-label" style="margin:0;">Google Maps</span>
+            <label style="display:flex;align-items:center;gap:5px;font-size:0.6875rem;color:var(--text-secondary);cursor:pointer;font-family:var(--font-mono);">
+                <input type="checkbox" id="hide-maps-cb" style="accent-color:var(--accent);">
+                Hide
+            </label>
+        </div>
+        <div id="maps-section">
+            <div class="panel-grid">
+                <div class="panel-field-wrap span2">
+                    <span class="panel-label">Maps URL</span>
+                    <input class="panel-field" id="f-maps_url" type="text">
+                </div>
+                <div class="panel-field-wrap">
+                    <span class="panel-label">Status</span>
+                    <input class="panel-field" id="f-status" type="text" placeholder="OPERATIONAL / CLOSED_PERMANENTLY">
+                </div>
+                <div class="panel-field-wrap">
+                    <span class="panel-label">Place ID</span>
+                    <input class="panel-field" id="f-place_id" type="text">
+                </div>
+                <div class="panel-field-wrap">
+                    <span class="panel-label">Rating</span>
+                    <input class="panel-field" id="f-rating" type="text">
+                </div>
+                <div class="panel-field-wrap">
+                    <span class="panel-label">Reviews</span>
+                    <input class="panel-field" id="f-review_count" type="text">
+                </div>
+                <div class="panel-field-wrap span2">
+                    <span class="panel-label">Types</span>
+                    <input class="panel-field" id="f-types" type="text">
+                </div>
+            </div>
         </div>
 
         <hr class="panel-divider">
@@ -532,6 +604,7 @@ function renderTable(contacts) {
             <td>${esc(c.email || '')}</td>
             <td style="color:var(--text-secondary)">${esc(c.working_as || '')}</td>
             <td style="color:var(--text-secondary);font-size:0.75rem;">${esc((c.created_at || '').slice(0, 10))}</td>
+            <td style="color:var(--text-secondary);font-size:0.75rem;">${esc((c.updated_at || '').slice(0, 10))}</td>
         `;
         // Click row to open panel (not on checkbox or drag handle)
         tr.addEventListener('click', (e) => {
@@ -778,7 +851,9 @@ function fillPanel(c) {
     document.getElementById('panel-title').textContent = contactDisplayName(c);
     ['first_name','last_name','title','email','phone','mobile_phone','calendar_link',
      'last_conversation','next_conversation','linkedin_profile','description',
-     'company_name','website'].forEach(f => {
+     'company_name','website',
+     'billing_street','billing_city','billing_state','billing_postal_code','billing_country',
+     'maps_url','status','place_id','rating','review_count','types'].forEach(f => {
         const el = document.getElementById('f-' + f);
         if (el) el.value = c[f] || '';
     });
@@ -890,18 +965,18 @@ document.getElementById('save-btn').addEventListener('click', async () => {
     if (await saveContact()) showStatus('status', 'Saved.', 'success');
 });
 
-// Save & Next
+// Save & Next — save current, open a fresh empty contact
 document.getElementById('save-next-btn').addEventListener('click', async () => {
     if (!currentContactId) return;
-    const savedId = currentContactId;
     if (!(await saveContact())) return;
-    const rows = Array.from(document.querySelectorAll('#contacts-tbody tr[data-id]'));
-    const idx = rows.findIndex(r => parseInt(r.dataset.id) === savedId);
-    if (idx !== -1 && idx + 1 < rows.length) {
-        openPanel(parseInt(rows[idx + 1].dataset.id));
-    } else {
-        showStatus('status', 'Saved. No next contact.', 'success');
-    }
+    const res = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ first_name: '', last_name: '' })
+    });
+    const c = await res.json();
+    await loadContacts();
+    openPanel(c.id);
 });
 
 // Save & Close
@@ -993,6 +1068,17 @@ function collectPanelData() {
         ideal_client: parseInt(document.getElementById('f-ideal_client').value),
         ideal_partner: parseInt(document.getElementById('f-ideal_partner').value),
         description: document.getElementById('f-description').value,
+        billing_street: document.getElementById('f-billing_street').value,
+        billing_city: document.getElementById('f-billing_city').value,
+        billing_state: document.getElementById('f-billing_state').value,
+        billing_postal_code: document.getElementById('f-billing_postal_code').value,
+        billing_country: document.getElementById('f-billing_country').value,
+        maps_url: document.getElementById('f-maps_url').value,
+        status: document.getElementById('f-status').value,
+        place_id: document.getElementById('f-place_id').value,
+        rating: document.getElementById('f-rating').value || null,
+        review_count: document.getElementById('f-review_count').value || null,
+        types: document.getElementById('f-types').value,
     };
 }
 
@@ -1059,6 +1145,34 @@ function esc(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 }
+
+// Address hide toggle
+(function() {
+    const cb = document.getElementById('hide-address-cb');
+    const sec = document.getElementById('address-section');
+    const hidden = localStorage.getItem('hermes_hide_address') === '1';
+    cb.checked = hidden;
+    sec.style.display = hidden ? 'none' : '';
+    cb.addEventListener('change', () => {
+        const hide = cb.checked;
+        sec.style.display = hide ? 'none' : '';
+        localStorage.setItem('hermes_hide_address', hide ? '1' : '0');
+    });
+})();
+
+// Google Maps hide toggle
+(function() {
+    const cb = document.getElementById('hide-maps-cb');
+    const sec = document.getElementById('maps-section');
+    const hidden = localStorage.getItem('hermes_hide_maps') === '1';
+    cb.checked = hidden;
+    sec.style.display = hidden ? 'none' : '';
+    cb.addEventListener('change', () => {
+        const hide = cb.checked;
+        sec.style.display = hide ? 'none' : '';
+        localStorage.setItem('hermes_hide_maps', hide ? '1' : '0');
+    });
+})();
 
 // Paste Import Modal
 const importModal = document.getElementById('import-modal');

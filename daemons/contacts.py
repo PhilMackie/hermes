@@ -57,7 +57,13 @@ def init_schema():
             updated_at TEXT DEFAULT (datetime('now')),
             working_as TEXT,
             sort_order INTEGER DEFAULT 0,
-            website TEXT DEFAULT ''
+            website TEXT DEFAULT '',
+            maps_url TEXT DEFAULT '',
+            status TEXT DEFAULT '',
+            types TEXT DEFAULT '',
+            rating REAL,
+            review_count INTEGER,
+            place_id TEXT DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS interactions (
@@ -88,7 +94,17 @@ def init_schema():
     conn.commit()
 
     # Migrations for existing DBs
-    for col in [("source", "TEXT DEFAULT ''"), ("is_archived", "INTEGER DEFAULT 0"), ("website", "TEXT DEFAULT ''")]:
+    for col in [
+        ("source", "TEXT DEFAULT ''"),
+        ("is_archived", "INTEGER DEFAULT 0"),
+        ("website", "TEXT DEFAULT ''"),
+        ("maps_url", "TEXT DEFAULT ''"),
+        ("status", "TEXT DEFAULT ''"),
+        ("types", "TEXT DEFAULT ''"),
+        ("rating", "REAL"),
+        ("review_count", "INTEGER"),
+        ("place_id", "TEXT DEFAULT ''"),
+    ]:
         try:
             conn.execute(f"ALTER TABLE contacts ADD COLUMN {col[0]} {col[1]}")
             conn.commit()
@@ -106,6 +122,7 @@ SORTABLE_COLS = {
     'email': 'c.email',
     'working_as': 'c.working_as',
     'created_at': 'c.created_at',
+    'updated_at': 'c.updated_at',
 }
 
 def list_contacts(q=None, tags=None, working_as=None, source=None, archived='active', page=1, per_page=50, sort_by=None, sort_dir='asc'):
@@ -199,8 +216,9 @@ def create_contact(data):
             calendar_link, source_url, source_page, referring_contact,
             ideal_client, ideal_partner, description,
             billing_street, billing_city, billing_state, billing_postal_code, billing_country,
-            last_conversation, next_conversation, working_as, source, website, sort_order)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            last_conversation, next_conversation, working_as, source, website, sort_order,
+            maps_url, status, types, rating, review_count, place_id)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (
             data.get("first_name", ""),
             data.get("last_name", ""),
@@ -231,6 +249,12 @@ def create_contact(data):
             data.get("source", ""),
             data.get("website", ""),
             data.get("sort_order", 0),
+            data.get("maps_url", ""),
+            data.get("status", ""),
+            data.get("types", ""),
+            data.get("rating") or None,
+            data.get("review_count") or None,
+            data.get("place_id", ""),
         )
     )
     conn.commit()
@@ -249,6 +273,7 @@ def update_contact(contact_id, data):
            ideal_client=?, ideal_partner=?, description=?,
            billing_street=?, billing_city=?, billing_state=?, billing_postal_code=?, billing_country=?,
            last_conversation=?, next_conversation=?, working_as=?, source=?, website=?,
+           maps_url=?, status=?, types=?, rating=?, review_count=?, place_id=?,
            updated_at=datetime('now')
            WHERE id=?""",
         (
@@ -280,6 +305,12 @@ def update_contact(contact_id, data):
             data.get("working_as", ""),
             data.get("source", ""),
             data.get("website", ""),
+            data.get("maps_url", ""),
+            data.get("status", ""),
+            data.get("types", ""),
+            data.get("rating") or None,
+            data.get("review_count") or None,
+            data.get("place_id", ""),
             contact_id,
         )
     )

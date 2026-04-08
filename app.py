@@ -23,7 +23,7 @@ from daemons.settings_daemon import (
     get_working_as_options, create_working_as, delete_working_as,
     get_all_sources, create_source, delete_source, rename_source
 )
-from daemons.importer import import_csv, parse_paste_text
+from daemons.importer import import_csv, parse_paste_text, import_enriched_csv
 from daemons.campaigns import (
     init_campaigns_schema,
     list_campaigns, create_campaign, update_campaign_notes, delete_campaign,
@@ -570,8 +570,25 @@ def api_campaign_search_contacts(campaign_id):
 @app.route("/api/export/csv", methods=["GET"])
 @login_required
 def api_export_csv():
+    from daemons.contacts import get_db
     include_archived = request.args.get("include_archived", "0") == "1"
     contacts = all_contacts_csv(include_archived=include_archived)
+
+    # Fetch all interactions in one query, group by contact
+    conn = get_db()
+    irows = conn.execute(
+        "SELECT contact_id, date, type, notes FROM interactions ORDER BY contact_id, date DESC"
+    ).fetchall()
+    conn.close()
+
+    interactions_by_contact = {}
+    for r in irows:
+        entry = f"{r['date']} | {r['type']}" + (f" | {r['notes']}" if r['notes'] else "")
+        interactions_by_contact.setdefault(r['contact_id'], []).append(entry)
+
+    for c in contacts:
+        c["interactions"] = "\n".join(interactions_by_contact.get(c["id"], []))
+
     output = io.StringIO()
     fieldnames = [
         "id", "first_name", "last_name", "title", "email", "phone", "mobile_phone",
@@ -580,7 +597,10 @@ def api_export_csv():
         "referring_contact", "ideal_client", "ideal_partner", "description",
         "billing_street", "billing_city", "billing_state", "billing_postal_code",
         "billing_country", "last_conversation", "next_conversation",
-        "website", "created_at", "updated_at"
+        "source", "website",
+        "maps_url", "status", "types", "rating", "review_count", "place_id",
+        "interactions",
+        "created_at", "updated_at"
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
@@ -604,6 +624,24 @@ def api_import():
         return jsonify({"error": f"File not found: {filepath}"}), 400
     result = import_csv(filepath)
     logger.info(f"Import complete: {result}")
+    return jsonify(result)
+
+
+@app.route("/api/import/enriched", methods=["POST"])
+@login_required
+def api_import_enriched():
+    import os, tempfile
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "No file uploaded"}), 400
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+        f.save(tmp.name)
+        tmppath = tmp.name
+    try:
+        result = import_enriched_csv(tmppath)
+    finally:
+        os.unlink(tmppath)
+    logger.info(f"Enriched import complete: {result}")
     return jsonify(result)
 
 
